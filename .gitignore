@@ -1,0 +1,35 @@
+# Data files (large GPX files and personal activity data)
+data/
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+public/build/
+*.mp4
+*.mov
+*.avi
+
+# Environment files
+.env
+.env.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temporary files
+.tmp/
+temp/

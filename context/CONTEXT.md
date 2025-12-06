@@ -8,12 +8,12 @@
 <!-- TEMPLATE SECTION: KEEP ALL - Project overview structure -->
 ## What Is This Project?
 
-**Running Visualizer** - A project for visualizing running data and metrics. This is a new project being initialized with the AI Context System for tracking development progress and maintaining continuity across sessions.
+**Running Visualizer** - A dual-purpose visualization platform for running data exported from Strava. Creates both interactive JavaScript visualizations for web browsers and rendered video animations from 8+ years of running activity data.
 
 **Goals:**
-- Visualize running data in meaningful ways
-- Track running metrics over time
-- Provide insights into running performance
+- Build interactive JavaScript visualizations for exploring running data
+- Create video animations from running activity data
+- Provide meaningful insights into running patterns and performance over time
 
 **Key Stakeholders:**
 - Owner: rexkirshner
@@ -89,22 +89,27 @@ TBD - Data flow will be documented once architecture is established
 ## Directory Structure
 
 ```
-[project-root]/
-├── [key-directory]/     # [Purpose]
-├── [key-directory]/     # [Purpose]
-├── [key-directory]/     # [Purpose]
+running-visualizer/
+├── data/                # Running activity data (gitignored)
+│   ├── activities.csv   # Summary data for 2,780 runs
+│   └── activities/      # 2,266 GPX files with detailed GPS tracks
+├── src/                 # Source code
+│   ├── interactive/     # Interactive web visualizations
+│   ├── animations/      # Video animation generation
+│   └── utils/           # Shared utilities
+├── public/              # Static assets and build output
 ├── context/             # AI Context System docs
 │   ├── CONTEXT.md       # This file
 │   ├── STATUS.md        # Current state
 │   ├── DECISIONS.md     # Decision log
 │   └── SESSIONS.md      # History
-└── [other-directories]  # [Purpose]
+└── artifacts/           # Generated outputs (reviews, reports)
 ```
 
 **File Organization Principles:**
-- [Principle 1, e.g., "Colocation - tests next to source"]
-- [Principle 2, e.g., "Feature folders, not type folders"]
-- [Principle 3, e.g., "Shared code in /lib"]
+- Separate interactive and animation code paths
+- Shared utilities for data parsing and processing
+- Data directory excluded from git (personal activity data)
 
 ---
 
@@ -242,16 +247,26 @@ cp .env.example .env.local
 
 ## Project-Specific Notes
 
-[Use this section for any project-specific context that doesn't fit above]
+**Data Source:**
+- Strava export containing 2,780 running activities
+- Date range: March 24, 2017 to December 5, 2025 (8+ years)
+- Total distance: 28,526 km (17,726 miles)
+- Average run: 10.26 km
+- 2,266 activities include GPX files with detailed GPS tracking
 
-**Custom Workflows:**
-- [Any unique workflow requirements]
+**Data Structure:**
+- `activities.csv`: Summary metrics (distance, time, pace, elevation, heart rate, weather, etc.)
+- `activities/*.gpx`: XML files with GPS coordinates, elevation, and timestamps for each track point
+- Distance values in CSV are in meters
+- GPX files contain latitude/longitude pairs with elevation and time data
+
+**Visualization Targets:**
+1. Interactive web-based visualizations (JavaScript)
+2. Video animations rendered from activity data
 
 **Technical Constraints:**
-- [Any hard requirements or limitations]
-
-**Integration Points:**
-- [External systems this connects to]
+- Focus only on running activities (exclude other activity types)
+- Personal data - not for public sharing without sanitization
 
 ---
 
