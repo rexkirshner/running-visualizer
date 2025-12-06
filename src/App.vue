@@ -35,7 +35,10 @@ onMounted(async () => {
 
   // Load and display runs
   try {
-    runs.value = await loadAllRuns()
+    runs.value = await loadAllRuns((loaded, total) => {
+      loadedCount.value = loaded
+      totalCount.value = total
+    })
 
     // Calculate bounds to fit all runs
     const allCoordinates = runs.value.flatMap(run => run.coordinates)

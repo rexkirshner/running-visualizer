@@ -111,9 +111,10 @@ export function parseGPX(gpxXML) {
 
 /**
  * Load all running activities with their GPX data
+ * @param {Function} onProgress - Optional callback for progress updates (loaded, total)
  * @returns {Promise<Array>} Array of runs with coordinates
  */
-export async function loadAllRuns() {
+export async function loadAllRuns(onProgress = null) {
   console.log('Loading activities CSV...')
   const activities = await loadActivitiesCSV()
   console.log(`Found ${activities.length} running activities`)
@@ -136,6 +137,11 @@ export async function loadAllRuns() {
 
     const batchResults = await Promise.all(batchPromises)
     runs.push(...batchResults)
+
+    // Report progress
+    if (onProgress) {
+      onProgress(runs.length, activities.length)
+    }
 
     console.log(`Loaded ${runs.length} / ${activities.length} runs`)
   }
