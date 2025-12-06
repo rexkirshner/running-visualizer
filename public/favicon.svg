@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Running shoe icon -->
+  <defs>
+    <style>
+      .shoe { fill: #3388ff; }
+      .sole { fill: #2266cc; }
+      .laces { fill: #ffffff; stroke: #3388ff; stroke-width: 1; }
+    </style>
+  </defs>
+
+  <!-- Shoe sole -->
+  <ellipse class="sole" cx="50" cy="70" rx="35" ry="12"/>
+
+  <!-- Shoe body -->
+  <path class="shoe" d="M 20 70 Q 20 50, 35 45 L 70 45 Q 80 45, 85 55 L 85 65 Q 85 70, 80 70 Z"/>
+
+  <!-- Shoe toe -->
+  <path class="shoe" d="M 70 45 Q 85 40, 90 50 Q 92 55, 88 60 L 85 65"/>
+
+  <!-- Laces -->
+  <line class="laces" x1="40" y1="50" x2="45" y2="55"/>
+  <line class="laces" x1="50" y1="48" x2="55" y2="53"/>
+  <line class="laces" x1="60" y1="48" x2="65" y2="53"/>
+
+  <!-- Shoe accent stripe -->
+  <path fill="none" stroke="#ffffff" stroke-width="2" opacity="0.6" d="M 30 58 Q 50 56, 75 58"/>
+</svg>
