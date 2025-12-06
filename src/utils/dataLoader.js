@@ -70,6 +70,67 @@ function parseCSVLine(line) {
 }
 
 /**
+ * Load and parse the activities-location CSV file
+ * Contains location metadata (city, state, country) and treadmill flag for each activity
+ * @returns {Promise<Map>} Map of activity ID to location object
+ */
+export async function loadLocationsCSV() {
+  const response = await fetch('/data/activities-location.csv')
+  const csvText = await response.text()
+
+  const lines = csvText.split('\n')
+  const locations = new Map()
+
+  for (let i = 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue
+
+    const values = parseCSVLine(lines[i])
+
+    // CSV structure: id,Month,Day,Year,Location,State,Country,International,Treadmill
+    const id = values[0]
+    const location = values[4] || ''
+    const state = values[5] || ''
+    const country = values[6] || ''
+    const international = values[7] || ''
+    const treadmill = values[8] === 'TRUE'
+
+    locations.set(id, {
+      location,
+      state,
+      country,
+      international,
+      treadmill
+    })
+  }
+
+  console.log(`Loaded location data for ${locations.size} activities`)
+  return locations
+}
+
+/**
+ * Merge activity data with location metadata
+ * @param {Array} activities - Array of activity objects from activities.csv
+ * @param {Map} locations - Map of location data by activity ID
+ * @returns {Array} Activities with location data merged in
+ */
+export function mergeActivityData(activities, locations) {
+  return activities.map(activity => {
+    const locationData = locations.get(activity.id) || {
+      location: 'Unknown',
+      state: 'Unknown',
+      country: 'Unknown',
+      international: 'Unknown',
+      treadmill: false
+    }
+
+    return {
+      ...activity,
+      ...locationData
+    }
+  })
+}
+
+/**
  * Load and parse a single GPX file
  * @param {string} filename - Filename from CSV (e.g., "activities/123456.gpx")
  * @returns {Promise<Array>} Array of [lat, lon] coordinates
@@ -110,22 +171,33 @@ export function parseGPX(gpxXML) {
 }
 
 /**
- * Load all running activities with their GPX data
+ * Load all running activities with their GPX data and location metadata
+ * Excludes treadmill runs (no GPS data)
  * @param {Function} onProgress - Optional callback for progress updates (loaded, total)
- * @returns {Promise<Array>} Array of runs with coordinates
+ * @returns {Promise<Array>} Array of runs with coordinates and location data
  */
 export async function loadAllRuns(onProgress = null) {
   console.log('Loading activities CSV...')
   const activities = await loadActivitiesCSV()
   console.log(`Found ${activities.length} running activities`)
 
+  console.log('Loading location data...')
+  const locations = await loadLocationsCSV()
+
+  console.log('Merging activity and location data...')
+  const mergedActivities = mergeActivityData(activities, locations)
+
+  // Filter out treadmill runs (they have no meaningful GPS data)
+  const outdoorActivities = mergedActivities.filter(activity => !activity.treadmill)
+  console.log(`Found ${outdoorActivities.length} outdoor runs (${mergedActivities.length - outdoorActivities.length} treadmill runs excluded)`)
+
   console.log('Loading GPX files...')
   const runs = []
 
   // Load GPX files in batches to avoid overwhelming the browser
   const batchSize = 50
-  for (let i = 0; i < activities.length; i += batchSize) {
-    const batch = activities.slice(i, i + batchSize)
+  for (let i = 0; i < outdoorActivities.length; i += batchSize) {
+    const batch = outdoorActivities.slice(i, i + batchSize)
 
     const batchPromises = batch.map(async (activity) => {
       const coordinates = await loadGPXFile(activity.filename)
@@ -140,15 +212,15 @@ export async function loadAllRuns(onProgress = null) {
 
     // Report progress
     if (onProgress) {
-      onProgress(runs.length, activities.length)
+      onProgress(runs.length, outdoorActivities.length)
     }
 
-    console.log(`Loaded ${runs.length} / ${activities.length} runs`)
+    console.log(`Loaded ${runs.length} / ${outdoorActivities.length} runs`)
   }
 
   // Filter out runs with no coordinates
   const validRuns = runs.filter(run => run.coordinates.length > 0)
-  console.log(`Successfully loaded ${validRuns.length} runs with GPS data`)
+  console.log(`Successfully loaded ${validRuns.length} outdoor runs with GPS data`)
 
   return validRuns
 }
