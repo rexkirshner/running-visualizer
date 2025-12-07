@@ -187,6 +187,11 @@ function renderRuns() {
   polylines.forEach(polyline => map.removeLayer(polyline))
   polylines = []
 
+  // If animating, don't show static routes - animation handles display
+  if (isAnimating.value || selectedRunId.value) {
+    return
+  }
+
   const runsToRender = filteredRuns.value
 
   // Calculate bounds to fit all filtered runs
@@ -270,6 +275,7 @@ function handleLocationReset() {
 /**
  * Handle run selection for animation
  * Resets progress when selecting a new run
+ * Hides static routes when a run is selected
  */
 function handleRunSelect(runId) {
   selectedRunId.value = runId
@@ -287,6 +293,10 @@ function handleRunSelect(runId) {
     map.removeLayer(animatedPolyline)
     animatedPolyline = null
   }
+
+  // Clear static routes when selecting a run
+  // When deselecting (empty runId), renderRuns() will restore them
+  renderRuns()
 }
 
 /**
