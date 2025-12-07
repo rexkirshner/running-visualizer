@@ -28,6 +28,21 @@
       @reset="handleLocationReset"
     />
 
+    <!-- Animation Controls (bottom-left) -->
+    <AnimationControls
+      v-if="!loading"
+      :runs="filteredRuns"
+      :selected-run-id="selectedRunId"
+      :duration="animationDuration"
+      :is-animating="isAnimating"
+      :progress="animationProgress"
+      @update:selected-run-id="handleRunSelect"
+      @update:duration="handleDurationChange"
+      @play="handlePlay"
+      @pause="handlePause"
+      @reset="handleReset"
+    />
+
     <div class="loading" v-if="loading">
       <div class="spinner"></div>
       <p>Loading runs... {{ loadedCount }} / {{ totalCount }}</p>
@@ -39,11 +54,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import L from 'leaflet'
 import { loadAllRuns } from './utils/dataLoader'
 import DateRangeFilter from './components/DateRangeFilter.vue'
 import LocationFilter from './components/LocationFilter.vue'
+import AnimationControls from './components/AnimationControls.vue'
 
 const mapContainer = ref(null)
 const runs = ref([])
@@ -59,6 +75,15 @@ const endDate = ref('')
 const selectedCity = ref('')
 const selectedState = ref('')
 const selectedCountry = ref('')
+
+// Animation state
+const selectedRunId = ref('')
+const animationDuration = ref(10) // seconds
+const isAnimating = ref(false)
+const animationProgress = ref(0) // 0-100
+let animationFrameId = null
+let animationStartTime = null
+let animatedPolyline = null // Currently animated polyline
 
 let map = null
 let polylines = [] // Store polyline references for clearing
@@ -237,6 +262,152 @@ function handleLocationReset() {
   selectedCountry.value = ''
   renderRuns()
 }
+
+// ============================================
+// Animation Handlers
+// ============================================
+
+/**
+ * Handle run selection for animation
+ * Resets progress when selecting a new run
+ */
+function handleRunSelect(runId) {
+  selectedRunId.value = runId
+  animationProgress.value = 0
+  isAnimating.value = false
+
+  // Clear any existing animation
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId)
+    animationFrameId = null
+  }
+
+  // Clear the animated polyline if it exists
+  if (animatedPolyline) {
+    map.removeLayer(animatedPolyline)
+    animatedPolyline = null
+  }
+}
+
+/**
+ * Handle animation duration change
+ */
+function handleDurationChange(newDuration) {
+  animationDuration.value = newDuration
+}
+
+/**
+ * Start animation playback
+ * Uses requestAnimationFrame for smooth 60fps animation
+ */
+function handlePlay() {
+  if (!selectedRunId.value) return
+
+  isAnimating.value = true
+  animationStartTime = performance.now() - (animationProgress.value / 100 * animationDuration.value * 1000)
+
+  animateRun()
+}
+
+/**
+ * Pause animation playback
+ * Preserves current progress
+ */
+function handlePause() {
+  isAnimating.value = false
+
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId)
+    animationFrameId = null
+  }
+}
+
+/**
+ * Reset animation to start
+ */
+function handleReset() {
+  isAnimating.value = false
+  animationProgress.value = 0
+
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId)
+    animationFrameId = null
+  }
+
+  if (animatedPolyline) {
+    map.removeLayer(animatedPolyline)
+    animatedPolyline = null
+  }
+}
+
+/**
+ * Main animation loop using requestAnimationFrame
+ * Progressively draws the route from start to finish
+ */
+function animateRun() {
+  if (!isAnimating.value) return
+
+  const currentTime = performance.now()
+  const elapsed = currentTime - animationStartTime
+  const progress = Math.min((elapsed / (animationDuration.value * 1000)) * 100, 100)
+
+  animationProgress.value = progress
+
+  // Find the selected run
+  const run = filteredRuns.value.find(r => r.id === selectedRunId.value)
+  if (!run || !run.coordinates) return
+
+  // Calculate how many coordinates to show based on progress
+  const totalPoints = run.coordinates.length
+  const pointsToShow = Math.floor((progress / 100) * totalPoints)
+
+  if (pointsToShow > 0) {
+    const partialCoordinates = run.coordinates.slice(0, pointsToShow)
+
+    // Remove old polyline
+    if (animatedPolyline) {
+      map.removeLayer(animatedPolyline)
+    }
+
+    // Draw new polyline with current progress
+    animatedPolyline = L.polyline(partialCoordinates, {
+      color: '#ef4444', // Red for animated route
+      weight: 3,
+      opacity: 0.8
+    }).addTo(map)
+
+    // Add popup with run details
+    const distanceKm = (run.distance / 1000).toFixed(2)
+    animatedPolyline.bindPopup(`
+      <strong>${run.name}</strong><br>
+      ${run.date}<br>
+      Distance: ${distanceKm} km<br>
+      <em>${run.location}, ${run.state}</em>
+    `)
+
+    // Fit map to show the animated route
+    if (partialCoordinates.length > 1) {
+      const bounds = L.latLngBounds(partialCoordinates)
+      map.fitBounds(bounds, { padding: [50, 50] })
+    }
+  }
+
+  // Continue animation if not complete
+  if (progress < 100) {
+    animationFrameId = requestAnimationFrame(animateRun)
+  } else {
+    // Animation complete
+    isAnimating.value = false
+    animationFrameId = null
+  }
+}
+
+// Cleanup on component unmount
+onUnmounted(() => {
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId)
+  }
+})
 </script>
 
 <style scoped>
