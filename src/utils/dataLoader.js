@@ -171,12 +171,11 @@ export function parseGPX(gpxXML) {
 }
 
 /**
- * Load all running activities with their GPX data and location metadata
- * Excludes treadmill runs (no GPS data)
- * @param {Function} onProgress - Optional callback for progress updates (loaded, total)
- * @returns {Promise<Array>} Array of runs with coordinates and location data
+ * Load metadata only (no GPX files) for setup/filtering
+ * Returns merged activity + location data without coordinates
+ * @returns {Promise<Array>} Array of activity metadata
  */
-export async function loadAllRuns(onProgress = null) {
+export async function loadMetadataOnly() {
   console.log('Loading activities CSV...')
   const activities = await loadActivitiesCSV()
   console.log(`Found ${activities.length} running activities`)
@@ -191,13 +190,79 @@ export async function loadAllRuns(onProgress = null) {
   const outdoorActivities = mergedActivities.filter(activity => !activity.treadmill)
   console.log(`Found ${outdoorActivities.length} outdoor runs (${mergedActivities.length - outdoorActivities.length} treadmill runs excluded)`)
 
-  console.log('Loading GPX files...')
+  return outdoorActivities
+}
+
+/**
+ * Parse activity date string to Date object
+ * @param {string} dateStr - Date string from CSV (e.g., "Mar 24, 2017, 5:42:11 PM")
+ * @returns {Date} Parsed date
+ */
+function parseActivityDate(dateStr) {
+  return new Date(dateStr)
+}
+
+/**
+ * Filter activities by date range and location
+ * @param {Array} activities - Array of activity metadata
+ * @param {Object} filters - Filter criteria
+ * @param {string} filters.startDate - Start date (YYYY-MM-DD) or empty
+ * @param {string} filters.endDate - End date (YYYY-MM-DD) or empty
+ * @param {string} filters.city - City filter or empty
+ * @param {string} filters.state - State filter or empty
+ * @param {string} filters.country - Country filter or empty
+ * @returns {Array} Filtered activities
+ */
+export function filterActivities(activities, filters = {}) {
+  return activities.filter(activity => {
+    // Date range filter
+    if (filters.startDate || filters.endDate) {
+      const activityDate = parseActivityDate(activity.date)
+
+      if (filters.startDate) {
+        const start = new Date(filters.startDate)
+        start.setHours(0, 0, 0, 0)
+        if (activityDate < start) return false
+      }
+
+      if (filters.endDate) {
+        const end = new Date(filters.endDate)
+        end.setHours(23, 59, 59, 999)
+        if (activityDate > end) return false
+      }
+    }
+
+    // Location filters
+    if (filters.city && activity.location !== filters.city) {
+      return false
+    }
+
+    if (filters.state && activity.state !== filters.state) {
+      return false
+    }
+
+    if (filters.country && activity.country !== filters.country) {
+      return false
+    }
+
+    return true
+  })
+}
+
+/**
+ * Load GPX data for a filtered set of activities
+ * @param {Array} activities - Array of activity metadata (already filtered)
+ * @param {Function} onProgress - Optional callback for progress updates (loaded, total)
+ * @returns {Promise<Array>} Array of runs with coordinates
+ */
+export async function loadGPXForActivities(activities, onProgress = null) {
+  console.log(`Loading GPX files for ${activities.length} activities...`)
   const runs = []
 
   // Load GPX files in batches to avoid overwhelming the browser
   const batchSize = 50
-  for (let i = 0; i < outdoorActivities.length; i += batchSize) {
-    const batch = outdoorActivities.slice(i, i + batchSize)
+  for (let i = 0; i < activities.length; i += batchSize) {
+    const batch = activities.slice(i, i + batchSize)
 
     const batchPromises = batch.map(async (activity) => {
       const coordinates = await loadGPXFile(activity.filename)
@@ -212,15 +277,37 @@ export async function loadAllRuns(onProgress = null) {
 
     // Report progress
     if (onProgress) {
-      onProgress(runs.length, outdoorActivities.length)
+      onProgress(runs.length, activities.length)
     }
 
-    console.log(`Loaded ${runs.length} / ${outdoorActivities.length} runs`)
+    console.log(`Loaded ${runs.length} / ${activities.length} runs`)
   }
 
   // Filter out runs with no coordinates
   const validRuns = runs.filter(run => run.coordinates.length > 0)
-  console.log(`Successfully loaded ${validRuns.length} outdoor runs with GPS data`)
+  console.log(`Successfully loaded ${validRuns.length} runs with GPS data`)
 
   return validRuns
+}
+
+/**
+ * Load all running activities with their GPX data and location metadata
+ * Excludes treadmill runs (no GPS data)
+ * @param {Function} onProgress - Optional callback for progress updates (loaded, total)
+ * @param {Object} filters - Optional filter criteria
+ * @returns {Promise<Array>} Array of runs with coordinates and location data
+ */
+export async function loadAllRuns(onProgress = null, filters = null) {
+  // Load metadata first
+  const allActivities = await loadMetadataOnly()
+
+  // Apply filters if provided
+  const activitiesToLoad = filters
+    ? filterActivities(allActivities, filters)
+    : allActivities
+
+  console.log(`Loading ${activitiesToLoad.length} of ${allActivities.length} activities after filtering`)
+
+  // Load GPX files for filtered activities
+  return loadGPXForActivities(activitiesToLoad, onProgress)
 }
