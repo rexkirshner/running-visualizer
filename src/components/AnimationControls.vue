@@ -41,7 +41,40 @@
         />
       </div>
 
-      <!-- Play/Pause Button -->
+      <!-- Play All Filtered Button -->
+      <div v-if="!selectedRunId && runs.length > 0" class="control-group">
+        <button
+          @click="handlePlayAll"
+          class="play-all-btn"
+          :disabled="isAnimatingAll"
+        >
+          {{ isAnimatingAll ? '⏸ Pause All' : '▶ Play All Filtered' }}
+        </button>
+        <button
+          @click="handleResetAll"
+          class="reset-btn"
+          :disabled="!isAnimatingAll && progressAll === 0"
+        >
+          ↻ Reset
+        </button>
+        <div class="run-count">{{ runs.length }} runs</div>
+      </div>
+
+      <!-- Progress Bar for All Runs -->
+      <div v-if="!selectedRunId && runs.length > 0 && (isAnimatingAll || progressAll > 0)" class="control-group">
+        <label>Progress:</label>
+        <div class="progress-container">
+          <div class="progress-bar progress-bar-all" :style="{ width: `${progressAll}%` }"></div>
+          <span class="progress-text">{{ Math.round(progressAll) }}%</span>
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <div v-if="runs.length > 0" class="divider">
+        <span>or select a single run</span>
+      </div>
+
+      <!-- Play/Pause Button for Single Run -->
       <div class="control-group">
         <button
           @click="handlePlayPause"
@@ -106,13 +139,23 @@ const props = defineProps({
     type: Number,
     default: 10
   },
-  /** Whether animation is currently playing */
+  /** Whether single-run animation is currently playing */
   isAnimating: {
     type: Boolean,
     default: false
   },
-  /** Animation progress percentage (0-100) */
+  /** Single-run animation progress percentage (0-100) */
   progress: {
+    type: Number,
+    default: 0
+  },
+  /** Whether all-runs animation is currently playing */
+  isAnimatingAll: {
+    type: Boolean,
+    default: false
+  },
+  /** All-runs animation progress percentage (0-100) */
+  progressAll: {
     type: Number,
     default: 0
   }
@@ -123,7 +166,10 @@ const emit = defineEmits([
   'update:duration',
   'play',
   'pause',
-  'reset'
+  'reset',
+  'playAll',
+  'pauseAll',
+  'resetAll'
 ])
 
 const isExpanded = ref(true)
@@ -150,6 +196,18 @@ function handlePlayPause() {
 
 function handleReset() {
   emit('reset')
+}
+
+function handlePlayAll() {
+  if (props.isAnimatingAll) {
+    emit('pauseAll')
+  } else {
+    emit('playAll')
+  }
+}
+
+function handleResetAll() {
+  emit('resetAll')
 }
 </script>
 
@@ -327,5 +385,58 @@ input[type="range"]:disabled {
   font-weight: 600;
   color: #333;
   z-index: 1;
+}
+
+.play-all-btn {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #10b981;
+  color: white;
+  flex: 1;
+}
+
+.play-all-btn:hover:not(:disabled) {
+  background: #059669;
+}
+
+.play-all-btn:disabled {
+  background: #ddd;
+  cursor: not-allowed;
+}
+
+.run-count {
+  font-size: 12px;
+  color: #666;
+  text-align: center;
+  margin-top: 4px;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 8px 0;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #ddd;
+}
+
+.divider span {
+  padding: 0 10px;
+  font-size: 12px;
+  color: #999;
+}
+
+.progress-bar-all {
+  background: linear-gradient(90deg, #10b981, #34d399);
 }
 </style>
