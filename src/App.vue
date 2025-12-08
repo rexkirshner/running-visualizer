@@ -36,11 +36,16 @@
       :duration="animationDuration"
       :is-animating="isAnimating"
       :progress="animationProgress"
+      :is-animating-all="isAnimatingAll"
+      :progress-all="animationProgressAll"
       @update:selected-run-id="handleRunSelect"
       @update:duration="handleDurationChange"
       @play="handlePlay"
       @pause="handlePause"
       @reset="handleReset"
+      @play-all="handlePlayAll"
+      @pause-all="handlePauseAll"
+      @reset-all="handleResetAll"
     />
 
     <div class="loading" v-if="loading">
@@ -76,7 +81,7 @@ const selectedCity = ref('')
 const selectedState = ref('')
 const selectedCountry = ref('')
 
-// Animation state
+// Animation state (single run)
 const selectedRunId = ref('')
 const animationDuration = ref(10) // seconds
 const isAnimating = ref(false)
@@ -84,6 +89,13 @@ const animationProgress = ref(0) // 0-100
 let animationFrameId = null
 let animationStartTime = null
 let animatedPolyline = null // Currently animated polyline
+
+// Animation state (all filtered runs)
+const isAnimatingAll = ref(false)
+const animationProgressAll = ref(0) // 0-100
+let animationFrameIdAll = null
+let animationStartTimeAll = null
+let animatedPolylines = [] // Multiple animated polylines
 
 let map = null
 let polylines = [] // Store polyline references for clearing
@@ -187,8 +199,8 @@ function renderRuns() {
   polylines.forEach(polyline => map.removeLayer(polyline))
   polylines = []
 
-  // If animating, don't show static routes - animation handles display
-  if (isAnimating.value || selectedRunId.value) {
+  // If animating (single or all), don't show static routes - animation handles display
+  if (isAnimating.value || selectedRunId.value || isAnimatingAll.value) {
     return
   }
 
@@ -350,6 +362,130 @@ function handleReset() {
   }
 }
 
+// ============================================
+// Multi-Run Animation Handlers
+// ============================================
+
+/**
+ * Start animation for all filtered runs
+ * All routes draw simultaneously
+ */
+function handlePlayAll() {
+  if (filteredRuns.value.length === 0) return
+
+  // Clear any single-run animation
+  if (selectedRunId.value) {
+    handleRunSelect('')
+  }
+
+  isAnimatingAll.value = true
+  animationStartTimeAll = performance.now() - (animationProgressAll.value / 100 * animationDuration.value * 1000)
+
+  // Clear static routes
+  renderRuns()
+
+  // Fit map to all filtered runs before starting
+  const allCoordinates = filteredRuns.value.flatMap(run => run.coordinates || [])
+  if (allCoordinates.length > 0) {
+    const bounds = L.latLngBounds(allCoordinates)
+    map.fitBounds(bounds, { padding: [50, 50] })
+  }
+
+  animateAllRuns()
+}
+
+/**
+ * Pause multi-run animation
+ */
+function handlePauseAll() {
+  isAnimatingAll.value = false
+
+  if (animationFrameIdAll) {
+    cancelAnimationFrame(animationFrameIdAll)
+    animationFrameIdAll = null
+  }
+}
+
+/**
+ * Reset multi-run animation
+ */
+function handleResetAll() {
+  isAnimatingAll.value = false
+  animationProgressAll.value = 0
+
+  if (animationFrameIdAll) {
+    cancelAnimationFrame(animationFrameIdAll)
+    animationFrameIdAll = null
+  }
+
+  // Clear all animated polylines
+  animatedPolylines.forEach(polyline => map.removeLayer(polyline))
+  animatedPolylines = []
+
+  // Restore static routes
+  renderRuns()
+}
+
+/**
+ * Main animation loop for all filtered runs
+ * Progressively draws all routes simultaneously
+ */
+function animateAllRuns() {
+  if (!isAnimatingAll.value) return
+
+  const currentTime = performance.now()
+  const elapsed = currentTime - animationStartTimeAll
+  const progress = Math.min((elapsed / (animationDuration.value * 1000)) * 100, 100)
+
+  animationProgressAll.value = progress
+
+  // Clear previous frame's polylines
+  animatedPolylines.forEach(polyline => map.removeLayer(polyline))
+  animatedPolylines = []
+
+  // Draw all filtered runs progressively
+  filteredRuns.value.forEach((run, index) => {
+    if (!run.coordinates || run.coordinates.length === 0) return
+
+    const totalPoints = run.coordinates.length
+    const pointsToShow = Math.floor((progress / 100) * totalPoints)
+
+    if (pointsToShow > 0) {
+      const partialCoordinates = run.coordinates.slice(0, pointsToShow)
+
+      // Use different colors for variety - cycle through a palette
+      const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#3b82f6', '#8b5cf6', '#ec4899']
+      const color = colors[index % colors.length]
+
+      const polyline = L.polyline(partialCoordinates, {
+        color: color,
+        weight: 2,
+        opacity: 0.7
+      }).addTo(map)
+
+      // Add popup with run details
+      const distanceKm = (run.distance / 1000).toFixed(2)
+      polyline.bindPopup(`
+        <strong>${run.name}</strong><br>
+        ${run.date}<br>
+        Distance: ${distanceKm} km<br>
+        <em>${run.location}, ${run.state}</em>
+      `)
+
+      animatedPolylines.push(polyline)
+    }
+  })
+
+  // Continue animation if not complete
+  if (progress < 100) {
+    animationFrameIdAll = requestAnimationFrame(animateAllRuns)
+  } else {
+    // Animation complete
+    isAnimatingAll.value = false
+    animationFrameIdAll = null
+  }
+}
+
 /**
  * Main animation loop using requestAnimationFrame
  * Progressively draws the route from start to finish
@@ -416,6 +552,9 @@ function animateRun() {
 onUnmounted(() => {
   if (animationFrameId) {
     cancelAnimationFrame(animationFrameId)
+  }
+  if (animationFrameIdAll) {
+    cancelAnimationFrame(animationFrameIdAll)
   }
 })
 </script>
