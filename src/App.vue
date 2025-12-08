@@ -2,6 +2,13 @@
   <div id="app">
     <div id="map" ref="mapContainer"></div>
 
+    <!-- Map Type Selector (top-center) -->
+    <MapTypeSelector
+      v-if="!loading"
+      :selected-type="mapType"
+      @update:selected-type="handleMapTypeChange"
+    />
+
     <!-- Date Range Filter (top-left) -->
     <DateRangeFilter
       v-if="!loading"
@@ -65,6 +72,7 @@ import { loadAllRuns } from './utils/dataLoader'
 import DateRangeFilter from './components/DateRangeFilter.vue'
 import LocationFilter from './components/LocationFilter.vue'
 import AnimationControls from './components/AnimationControls.vue'
+import MapTypeSelector from './components/MapTypeSelector.vue'
 
 const mapContainer = ref(null)
 const runs = ref([])
@@ -99,6 +107,10 @@ let animatedPolylines = [] // Multiple animated polylines
 
 let map = null
 let polylines = [] // Store polyline references for clearing
+let currentTileLayer = null // Current map tile layer
+
+// Map type state
+const mapType = ref('streets')
 
 /**
  * Extract unique values from runs for filter dropdowns
@@ -169,8 +181,8 @@ onMounted(async () => {
   // Initialize Leaflet map centered on Southern California
   map = L.map(mapContainer.value).setView([34.0, -118.4], 11)
 
-  // Add OpenStreetMap tiles
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  // Add initial tile layer (OpenStreetMap)
+  currentTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     maxZoom: 19
   }).addTo(map)
@@ -278,6 +290,60 @@ function handleLocationReset() {
   selectedState.value = ''
   selectedCountry.value = ''
   renderRuns()
+}
+
+// ============================================
+// Map Type Handlers
+// ============================================
+
+/**
+ * Tile layer configurations for different map types
+ */
+const tileLayers = {
+  streets: {
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19
+  },
+  satellite: {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: '&copy; Esri',
+    maxZoom: 19
+  },
+  dark: {
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+    maxZoom: 19
+  },
+  light: {
+    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+    maxZoom: 19
+  },
+  none: null // No background
+}
+
+/**
+ * Handle map type change
+ * Switches the tile layer or removes it for 'none'
+ */
+function handleMapTypeChange(newType) {
+  mapType.value = newType
+
+  // Remove current tile layer
+  if (currentTileLayer) {
+    map.removeLayer(currentTileLayer)
+    currentTileLayer = null
+  }
+
+  // Add new tile layer (unless 'none')
+  const config = tileLayers[newType]
+  if (config) {
+    currentTileLayer = L.tileLayer(config.url, {
+      attribution: config.attribution,
+      maxZoom: config.maxZoom
+    }).addTo(map)
+  }
 }
 
 // ============================================
