@@ -9,6 +9,15 @@
       @update:selected-type="handleMapTypeChange"
     />
 
+    <!-- Route Color Selector (below map type) -->
+    <RouteColorSelector
+      v-if="!loading"
+      :color-mode="colorMode"
+      :single-color="singleColor"
+      @update:color-mode="handleColorModeChange"
+      @update:single-color="handleSingleColorChange"
+    />
+
     <!-- Date Range Filter (top-left) -->
     <DateRangeFilter
       v-if="!loading"
@@ -73,6 +82,7 @@ import DateRangeFilter from './components/DateRangeFilter.vue'
 import LocationFilter from './components/LocationFilter.vue'
 import AnimationControls from './components/AnimationControls.vue'
 import MapTypeSelector from './components/MapTypeSelector.vue'
+import RouteColorSelector from './components/RouteColorSelector.vue'
 
 const mapContainer = ref(null)
 const runs = ref([])
@@ -111,6 +121,10 @@ let currentTileLayer = null // Current map tile layer
 
 // Map type state
 const mapType = ref('streets')
+
+// Route color state
+const colorMode = ref('multiple') // 'single' or 'multiple'
+const singleColor = ref('#3388ff')
 
 /**
  * Extract unique values from runs for filter dropdowns
@@ -227,10 +241,10 @@ function renderRuns() {
   }
 
   // Draw each run as a polyline
-  runsToRender.forEach(run => {
+  runsToRender.forEach((run, index) => {
     if (run.coordinates && run.coordinates.length > 0) {
       const polyline = L.polyline(run.coordinates, {
-        color: '#3388ff',
+        color: getRouteColor(index),
         weight: 2,
         opacity: 0.6
       })
@@ -344,6 +358,35 @@ function handleMapTypeChange(newType) {
       maxZoom: config.maxZoom
     }).addTo(map)
   }
+}
+
+// ============================================
+// Route Color Handlers
+// ============================================
+
+/** Color palette for multiple color mode */
+const colorPalette = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#3b82f6', '#8b5cf6', '#ec4899']
+
+/**
+ * Get color for a route based on current color mode
+ * @param {number} index - Route index for multi-color mode
+ * @returns {string} Hex color
+ */
+function getRouteColor(index) {
+  if (colorMode.value === 'single') {
+    return singleColor.value
+  }
+  return colorPalette[index % colorPalette.length]
+}
+
+function handleColorModeChange(newMode) {
+  colorMode.value = newMode
+  renderRuns()
+}
+
+function handleSingleColorChange(newColor) {
+  singleColor.value = newColor
+  renderRuns()
 }
 
 // ============================================
@@ -519,12 +562,8 @@ function animateAllRuns() {
     if (pointsToShow > 0) {
       const partialCoordinates = run.coordinates.slice(0, pointsToShow)
 
-      // Use different colors for variety - cycle through a palette
-      const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#3b82f6', '#8b5cf6', '#ec4899']
-      const color = colors[index % colors.length]
-
       const polyline = L.polyline(partialCoordinates, {
-        color: color,
+        color: getRouteColor(index),
         weight: 2,
         opacity: 0.7
       }).addTo(map)
@@ -582,8 +621,10 @@ function animateRun() {
     }
 
     // Draw new polyline with current progress
+    // Use single color if set, otherwise red for visibility
+    const animationColor = colorMode.value === 'single' ? singleColor.value : '#ef4444'
     animatedPolyline = L.polyline(partialCoordinates, {
-      color: '#ef4444', // Red for animated route
+      color: animationColor,
       weight: 3,
       opacity: 0.8
     }).addTo(map)
