@@ -1,9 +1,17 @@
 <template>
   <div id="app">
-    <div id="map" ref="mapContainer"></div>
+    <!-- Setup Page (filter before loading) -->
+    <SetupPage
+      v-if="appMode === 'setup'"
+      @load="handleSetupLoad"
+    />
 
-    <!-- Map Type Selector (top-center) -->
-    <MapTypeSelector
+    <!-- Map View -->
+    <template v-else>
+      <div id="map" ref="mapContainer"></div>
+
+      <!-- Map Type Selector (top-center) -->
+      <MapTypeSelector
       v-if="!loading"
       :selected-type="mapType"
       @update:selected-type="handleMapTypeChange"
@@ -71,11 +79,12 @@
     <div class="stats" v-if="!loading">
       {{ filteredRuns.length }} / {{ runs.length }} runs
     </div>
+    </template>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import L from 'leaflet'
 import { loadAllRuns } from './utils/dataLoader'
 import DateRangeFilter from './components/DateRangeFilter.vue'
@@ -83,6 +92,11 @@ import LocationFilter from './components/LocationFilter.vue'
 import AnimationControls from './components/AnimationControls.vue'
 import MapTypeSelector from './components/MapTypeSelector.vue'
 import RouteColorSelector from './components/RouteColorSelector.vue'
+import SetupPage from './components/SetupPage.vue'
+
+// App mode: 'setup' or 'map'
+const appMode = ref('setup')
+const initialFilters = ref(null)
 
 const mapContainer = ref(null)
 const runs = ref([])
@@ -191,7 +205,17 @@ const filteredRuns = computed(() => {
   })
 })
 
-onMounted(async () => {
+/**
+ * Handle setup page load event
+ * Switches to map view and loads runs with filters
+ */
+async function handleSetupLoad(filters) {
+  initialFilters.value = filters
+  appMode.value = 'map'
+
+  // Wait for next tick to ensure map container is rendered
+  await nextTick()
+
   // Initialize Leaflet map centered on Southern California
   map = L.map(mapContainer.value).setView([34.0, -118.4], 11)
 
@@ -201,12 +225,12 @@ onMounted(async () => {
     maxZoom: 19
   }).addTo(map)
 
-  // Load and display runs
+  // Load and display runs with filters
   try {
     runs.value = await loadAllRuns((loaded, total) => {
       loadedCount.value = loaded
       totalCount.value = total
-    })
+    }, filters)
 
     // Initial render
     renderRuns()
@@ -217,6 +241,11 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+}
+
+// Keep onMounted empty - map init happens in handleSetupLoad
+onMounted(() => {
+  // Map initialization moved to handleSetupLoad
 })
 
 // Render runs on the map
