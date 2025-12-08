@@ -11,7 +11,7 @@
           id="start-date"
           type="date"
           :value="startDate"
-          @input="updateStartDate"
+          @change="updateStartDate"
           :max="endDate"
         />
       </div>
@@ -21,7 +21,7 @@
           id="end-date"
           type="date"
           :value="endDate"
-          @input="updateEndDate"
+          @change="updateEndDate"
           :min="startDate"
         />
       </div>
