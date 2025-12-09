@@ -87,6 +87,13 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import L from 'leaflet'
 import { loadAllRuns } from './utils/dataLoader'
+import {
+  createRunnerDot,
+  updateRunnerDotPosition,
+  removeRunnerDot,
+  removeAllRunnerDots,
+  getPositionAtProgress
+} from './utils/runnerDot'
 import DateRangeFilter from './components/DateRangeFilter.vue'
 import LocationFilter from './components/LocationFilter.vue'
 import AnimationControls from './components/AnimationControls.vue'
@@ -121,6 +128,7 @@ const animationProgress = ref(0) // 0-100
 let animationFrameId = null
 let animationStartTime = null
 let animatedPolyline = null // Currently animated polyline
+let runnerDot = null // Runner dot marker for single-run animation
 
 // Animation state (all filtered runs)
 const isAnimatingAll = ref(false)
@@ -444,6 +452,12 @@ function handleRunSelect(runId) {
     animatedPolyline = null
   }
 
+  // Clear runner dot if it exists
+  if (runnerDot) {
+    removeRunnerDot(map, runnerDot)
+    runnerDot = null
+  }
+
   // Clear static routes when selecting a run
   // When deselecting (empty runId), renderRuns() will restore them
   renderRuns()
@@ -497,6 +511,12 @@ function handleReset() {
   if (animatedPolyline) {
     map.removeLayer(animatedPolyline)
     animatedPolyline = null
+  }
+
+  // Clean up runner dot
+  if (runnerDot) {
+    removeRunnerDot(map, runnerDot)
+    runnerDot = null
   }
 }
 
@@ -658,6 +678,16 @@ function animateRun() {
       opacity: 0.8
     }).addTo(map)
 
+    // Update runner dot at the head of the route
+    const headPosition = partialCoordinates[partialCoordinates.length - 1]
+    if (!runnerDot) {
+      // Create runner dot on first frame
+      runnerDot = createRunnerDot(map, headPosition, animationColor)
+    } else {
+      // Update position on subsequent frames
+      updateRunnerDotPosition(runnerDot, headPosition)
+    }
+
     // Add popup with run details
     const distanceKm = (run.distance / 1000).toFixed(2)
     animatedPolyline.bindPopup(`
@@ -691,6 +721,10 @@ onUnmounted(() => {
   }
   if (animationFrameIdAll) {
     cancelAnimationFrame(animationFrameIdAll)
+  }
+  // Clean up runner dots
+  if (runnerDot) {
+    removeRunnerDot(map, runnerDot)
   }
 })
 </script>
