@@ -136,6 +136,7 @@ const animationProgressAll = ref(0) // 0-100
 let animationFrameIdAll = null
 let animationStartTimeAll = null
 let animatedPolylines = [] // Multiple animated polylines
+let runnerDotsAll = [] // Runner dot markers for multi-run animation
 
 let map = null
 let polylines = [] // Store polyline references for clearing
@@ -580,6 +581,10 @@ function handleResetAll() {
   animatedPolylines.forEach(polyline => map.removeLayer(polyline))
   animatedPolylines = []
 
+  // Clean up all runner dots
+  removeAllRunnerDots(map, runnerDotsAll)
+  runnerDotsAll = []
+
   // Restore static routes
   renderRuns()
 }
@@ -601,6 +606,10 @@ function animateAllRuns() {
   animatedPolylines.forEach(polyline => map.removeLayer(polyline))
   animatedPolylines = []
 
+  // Clear previous frame's runner dots
+  removeAllRunnerDots(map, runnerDotsAll)
+  runnerDotsAll = []
+
   // Draw all filtered runs progressively
   filteredRuns.value.forEach((run, index) => {
     if (!run.coordinates || run.coordinates.length === 0) return
@@ -610,12 +619,20 @@ function animateAllRuns() {
 
     if (pointsToShow > 0) {
       const partialCoordinates = run.coordinates.slice(0, pointsToShow)
+      const routeColor = getRouteColor(index)
 
       const polyline = L.polyline(partialCoordinates, {
-        color: getRouteColor(index),
+        color: routeColor,
         weight: 2,
         opacity: 0.7
       }).addTo(map)
+
+      // Add runner dot at the head of this route
+      const headPosition = partialCoordinates[partialCoordinates.length - 1]
+      const dot = createRunnerDot(map, headPosition, routeColor)
+      if (dot) {
+        runnerDotsAll.push(dot)
+      }
 
       // Add popup with run details
       const distanceKm = (run.distance / 1000).toFixed(2)
@@ -634,7 +651,9 @@ function animateAllRuns() {
   if (progress < 100) {
     animationFrameIdAll = requestAnimationFrame(animateAllRuns)
   } else {
-    // Animation complete
+    // Animation complete - clean up runner dots
+    removeAllRunnerDots(map, runnerDotsAll)
+    runnerDotsAll = []
     isAnimatingAll.value = false
     animationFrameIdAll = null
   }
@@ -722,10 +741,12 @@ onUnmounted(() => {
   if (animationFrameIdAll) {
     cancelAnimationFrame(animationFrameIdAll)
   }
-  // Clean up runner dots
+  // Clean up single-run runner dot
   if (runnerDot) {
     removeRunnerDot(map, runnerDot)
   }
+  // Clean up multi-run runner dots
+  removeAllRunnerDots(map, runnerDotsAll)
 })
 </script>
 
