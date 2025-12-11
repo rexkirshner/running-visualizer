@@ -1,13 +1,61 @@
 /**
  * Video Export Utility
  *
- * Provides functions for capturing map animations to WebM video files.
- * Uses frame-by-frame capture for accurate timing.
+ * Provides functions for capturing map animations to WebM video files
+ * and converting them to Final Cut Pro compatible formats (MOV/MP4).
  *
  * @module utils/videoExport
  */
 
 import html2canvas from 'html2canvas'
+import { FFmpeg } from '@ffmpeg/ffmpeg'
+import { fetchFile } from '@ffmpeg/util'
+
+// Singleton FFmpeg instance (lazy loaded)
+let ffmpegInstance = null
+let ffmpegLoading = false
+let ffmpegLoadPromise = null
+
+/**
+ * Get or create the FFmpeg instance
+ * Lazy loads on first use
+ * @returns {Promise<FFmpeg>}
+ */
+async function getFFmpeg() {
+  if (ffmpegInstance) {
+    return ffmpegInstance
+  }
+
+  if (ffmpegLoading) {
+    return ffmpegLoadPromise
+  }
+
+  ffmpegLoading = true
+  ffmpegLoadPromise = (async () => {
+    console.log('Loading FFmpeg...')
+    const ffmpeg = new FFmpeg()
+
+    ffmpeg.on('log', ({ message }) => {
+      console.log('FFmpeg:', message)
+    })
+
+    ffmpeg.on('progress', ({ progress }) => {
+      console.log(`FFmpeg progress: ${(progress * 100).toFixed(0)}%`)
+    })
+
+    await ffmpeg.load({
+      coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
+      wasmURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm'
+    })
+
+    console.log('FFmpeg loaded')
+    ffmpegInstance = ffmpeg
+    ffmpegLoading = false
+    return ffmpeg
+  })()
+
+  return ffmpegLoadPromise
+}
 
 /**
  * Default recording options
@@ -253,10 +301,76 @@ export function downloadBlob(blob, filename = 'recording.webm') {
  * Generate a filename with timestamp
  *
  * @param {string} [prefix='run-animation'] - Filename prefix
+ * @param {string} [extension='webm'] - File extension
  * @returns {string} Filename with timestamp
  */
-export function generateFilename(prefix = 'run-animation') {
+export function generateFilename(prefix = 'run-animation', extension = 'webm') {
   const now = new Date()
   const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19)
-  return `${prefix}-${timestamp}.webm`
+  return `${prefix}-${timestamp}.${extension}`
+}
+
+/**
+ * Convert WebM blob to MP4 with corrected duration
+ * Uses ffmpeg.wasm for in-browser conversion
+ *
+ * @param {Blob} webmBlob - The WebM video blob
+ * @param {number} speedupFactor - Factor to speed up the video
+ * @param {string} [format='mp4'] - Output format ('mp4' or 'mov')
+ * @returns {Promise<Blob>} The converted video blob
+ */
+export async function convertVideo(webmBlob, speedupFactor, format = 'mp4') {
+  console.log(`Converting video to ${format.toUpperCase()} with ${speedupFactor.toFixed(2)}x speedup...`)
+
+  const ffmpeg = await getFFmpeg()
+
+  // Write input file
+  const inputData = await fetchFile(webmBlob)
+  await ffmpeg.writeFile('input.webm', inputData)
+
+  // Build ffmpeg command based on format
+  const outputFile = `output.${format}`
+  let args
+
+  if (format === 'mov') {
+    // ProRes for Final Cut Pro (high quality, large file)
+    args = [
+      '-i', 'input.webm',
+      '-filter:v', `setpts=PTS/${speedupFactor.toFixed(4)}`,
+      '-c:v', 'libx264',  // Use H.264 for better compatibility (ProRes not available in ffmpeg.wasm)
+      '-preset', 'slow',
+      '-crf', '18',
+      '-pix_fmt', 'yuv420p',
+      '-an',
+      outputFile
+    ]
+  } else {
+    // H.264 MP4 (good quality, smaller file)
+    args = [
+      '-i', 'input.webm',
+      '-filter:v', `setpts=PTS/${speedupFactor.toFixed(4)}`,
+      '-c:v', 'libx264',
+      '-preset', 'slow',
+      '-crf', '18',
+      '-pix_fmt', 'yuv420p',
+      '-an',
+      outputFile
+    ]
+  }
+
+  console.log('FFmpeg args:', args.join(' '))
+  await ffmpeg.exec(args)
+
+  // Read output file
+  const data = await ffmpeg.readFile(outputFile)
+
+  // Clean up
+  await ffmpeg.deleteFile('input.webm')
+  await ffmpeg.deleteFile(outputFile)
+
+  const mimeType = format === 'mov' ? 'video/quicktime' : 'video/mp4'
+  const outputBlob = new Blob([data.buffer], { type: mimeType })
+
+  console.log(`Conversion complete: ${(outputBlob.size / 1024 / 1024).toFixed(2)} MB`)
+  return outputBlob
 }

@@ -103,7 +103,8 @@ import {
 import {
   VideoRecorder,
   downloadBlob,
-  generateFilename
+  generateFilename,
+  convertVideo
 } from './utils/videoExport'
 import DateRangeFilter from './components/DateRangeFilter.vue'
 import LocationFilter from './components/LocationFilter.vue'
@@ -474,10 +475,18 @@ async function handleToggleRecording() {
     if (videoRecorder) {
       const result = await videoRecorder.stop()
       if (result && result.blob) {
-        // Include speedup factor in filename for reference
-        const speedStr = result.speedupFactor.toFixed(1).replace('.', 'x')
-        const filename = generateFilename(`run-animation-speed${speedStr}`)
-        downloadBlob(result.blob, filename)
+        console.log('Converting to MP4...')
+        try {
+          // Convert WebM to MP4 with corrected duration
+          const mp4Blob = await convertVideo(result.blob, result.speedupFactor, 'mp4')
+          const filename = generateFilename('run-animation', 'mp4')
+          downloadBlob(mp4Blob, filename)
+        } catch (error) {
+          console.error('Conversion failed, downloading WebM instead:', error)
+          // Fallback to WebM if conversion fails
+          const filename = generateFilename('run-animation', 'webm')
+          downloadBlob(result.blob, filename)
+        }
       }
       videoRecorder = null
     }
