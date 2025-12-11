@@ -72,7 +72,7 @@
           <input
             id="dot-size-slider"
             type="range"
-            min="3"
+            min="1"
             max="15"
             step="1"
             :value="runnerDotSize"
