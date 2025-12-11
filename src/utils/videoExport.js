@@ -43,11 +43,11 @@ async function getFFmpeg() {
       console.log(`FFmpeg progress: ${(progress * 100).toFixed(0)}%`)
     })
 
-    // Use full URL to avoid Vite transformation issues
-    const baseURL = window.location.origin
+    // Use unpkg CDN for single-threaded version (works without SharedArrayBuffer)
+    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd'
     await ffmpeg.load({
-      coreURL: `${baseURL}/ffmpeg/ffmpeg-core.js`,
-      wasmURL: `${baseURL}/ffmpeg/ffmpeg-core.wasm`
+      coreURL: `${baseURL}/ffmpeg-core.js`,
+      wasmURL: `${baseURL}/ffmpeg-core.wasm`
     })
 
     console.log('FFmpeg loaded')
