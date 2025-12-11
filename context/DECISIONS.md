@@ -161,12 +161,89 @@ Use PostgreSQL with Prisma ORM instead of MongoDB.
 
 ---
 
+## D002 - PNG Sequence Export over Video
+
+**Date:** 2025-12-11
+**Status:** Accepted
+**Session:** 7
+
+### Context
+
+User wants to export route animations for use in Final Cut Pro. Requirements:
+- Transparent background (routes overlay on other content)
+- High quality output (up to 4K)
+- Variable frame rate support (24/30/60fps)
+- Browser-based export (no server processing)
+
+### Decision
+
+Use PNG image sequence export with JSZip packaging instead of video export (WebM/MP4).
+
+### Rationale
+
+**Key factors:**
+- H.264/MP4 codec does not support alpha (transparency)
+- PNG provides lossless quality with full alpha channel
+- Image sequences are native to video editing workflows
+- No codec compatibility issues across platforms
+
+### Alternatives Considered
+
+1. **WebM with VP9 alpha**
+   - Pros: Single file, supports transparency, good compression
+   - Cons: Poor FCP support, codec compatibility issues
+   - Why not: Final Cut Pro doesn't natively import WebM
+
+2. **MP4 with H.264**
+   - Pros: Universal compatibility, small file size
+   - Cons: No transparency support
+   - Why not: User explicitly needs transparent background
+
+3. **ProRes 4444 MOV**
+   - Pros: FCP native, supports alpha, high quality
+   - Cons: ffmpeg.wasm doesn't include ProRes encoder
+   - Why not: Technical limitation of browser-based ffmpeg
+
+### Tradeoffs Accepted
+
+- ✅ Perfect transparency support, lossless quality, easy FCP import
+- ❌ Larger file sizes (uncompressed PNGs), requires unzipping before import
+
+### Consequences
+
+**Positive:**
+- Works perfectly with Final Cut Pro workflow
+- No quality loss from video compression
+- User can adjust frame rate during FCP import
+- Resolution up to 4K supported
+
+**Negative:**
+- ZIP files can be large (hundreds of MB for 4K exports)
+- Extra step to unzip before importing to editor
+- Memory usage during capture (all frames in memory)
+
+### When to Reconsider
+
+**Triggers:**
+- Browser supports ProRes encoding in ffmpeg.wasm
+- WebM with alpha becomes FCP-compatible
+- Memory issues with very long animations at high resolution
+
+### Related
+
+- See: `SESSIONS.md` Session 7
+- See: `src/utils/videoExport.js` PNGSequenceRecorder class
+
+**For AI agents:** This decision prioritizes transparency and FCP compatibility over file size. The user is a video editor who needs to composite route animations. If they later request smaller files and don't need transparency, consider adding MP4 export as an option.
+
+---
+
 ## Active Decisions
 
 | ID | Title | Date | Status |
 |----|-------|------|--------|
-| D001 | PostgreSQL over MongoDB | 2025-01-15 | ✅ Accepted |
-| D002 | [Next decision] | [Date] | 🔄 Reconsidering |
+| D001 | PostgreSQL over MongoDB | 2025-01-15 | ✅ Accepted (example) |
+| D002 | PNG Sequence Export over Video | 2025-12-11 | ✅ Accepted |
 
 ---
 

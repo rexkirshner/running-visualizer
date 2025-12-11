@@ -320,3 +320,61 @@ Quick navigation to specific work.
 **Blockers:** None - all features working in dev server on localhost:3300
 
 ---
+
+## Session 7 - 2025-12-11
+
+**Duration:** 2h | **Focus:** Video/PNG Export Feature Development | **Status:** ✅
+
+### TL;DR
+- Built complete video recording system (WebM → MP4 conversion with ffmpeg.wasm)
+- Pivoted to PNG sequence export for transparency support
+- Added configurable export settings (resolution up to 4K, frame rate 24/30/60fps)
+- Fixed multiple ffmpeg.wasm loading issues, ultimately switched to esm.sh CDN with toBlobURL
+- Changed app defaults to single color, no background, 1px runner dots for export-ready state
+
+### Problem Solved
+**Issue:** User wanted to export route animations as video for use in Final Cut Pro, with transparent backgrounds.
+**Constraints:** Browser-based export, need FCP compatibility, transparency required, various resolution/framerate needs.
+**Approach:** Started with WebM recording via html2canvas + MediaRecorder, added ffmpeg.wasm for MP4 conversion, ultimately pivoted to PNG sequence export when transparency proved problematic with video codecs.
+**Why this approach:** H.264/MP4 doesn't support transparency. PNG sequences provide perfect transparency, lossless quality, and easy FCP import. ZIP packaging keeps frames organized.
+
+### Decisions
+- **PNG over video for export:** MP4/H.264 cannot support transparency; PNG sequence gives lossless quality with full alpha → See DECISIONS.md
+- **ffmpeg.wasm approach:** Used toBlobURL from @ffmpeg/util to properly load CDN files, avoiding CORS/import issues
+- **JSZip for packaging:** Bundles numbered PNGs into single downloadable archive
+
+### Files
+**MOD:** `src/utils/videoExport.js` - Added VideoRecorder, PNGSequenceRecorder, ffmpeg integration, JSZip bundling
+**MOD:** `src/App.vue` - Recording state, export handlers, defaults changed (single color, no bg, 1px dots)
+**MOD:** `src/components/AnimationControls.vue` - Recording button, export settings UI (resolution/framerate)
+**MOD:** `src/components/SetupPage.vue` - FFmpeg preloading during setup
+**MOD:** `vite.config.js` - Added optimizeDeps exclude for ffmpeg
+**MOD:** `package.json` - Added @ffmpeg/ffmpeg, @ffmpeg/util, jszip dependencies
+
+### Mental Models
+**Current understanding:** Export system captures each animation frame via html2canvas, stores as PNG blobs in memory, then packages into ZIP via JSZip. Frame-based animation progress during recording ensures consistent frame capture regardless of capture speed. Resolution and framerate are configurable pre-recording.
+**Key insights:** html2canvas is slow (~100-200ms per frame), so recording takes longer than realtime playback. Frame-based progress (not time-based) during recording ensures all frames are captured.
+**Gotchas discovered:** ffmpeg.wasm import errors are extremely opaque ("failed to import ffmpeg-core.js" with undefined error properties). toBlobURL approach finally worked. Also, record button must not be disabled during recording or user can't stop it!
+
+### Work In Progress
+**Task:** PNG export implemented but not fully tested with transparency
+**Location:** `src/utils/videoExport.js` PNGSequenceRecorder class
+**Current approach:** html2canvas with backgroundColor: null for transparency
+**Why this approach:** Canvas API preserves alpha when no background fill
+**Next specific action:** User needs to test PNG export and verify transparency in output
+**Context needed:** Export settings now configurable (720p-4K, 24/30/60fps)
+
+### TodoWrite State
+**Completed:**
+- ✅ Create PNG sequence export function
+- ✅ Update App.vue to use PNG export
+- ✅ Add configurable export settings
+
+**In Progress:**
+- ⏳ Test PNG export with transparency
+
+### Next Session
+**Priority:** Verify PNG export produces transparent backgrounds correctly
+**Blockers:** None - feature complete, needs user testing
+
+---
