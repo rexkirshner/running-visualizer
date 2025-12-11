@@ -45,18 +45,52 @@ async function getFFmpeg() {
 
     // Use unpkg CDN for single-threaded version (works without SharedArrayBuffer)
     const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd'
-    await ffmpeg.load({
-      coreURL: `${baseURL}/ffmpeg-core.js`,
-      wasmURL: `${baseURL}/ffmpeg-core.wasm`
-    })
+    console.log('FFmpeg loading from:', baseURL)
 
-    console.log('FFmpeg loaded')
-    ffmpegInstance = ffmpeg
-    ffmpegLoading = false
-    return ffmpeg
+    try {
+      await ffmpeg.load({
+        coreURL: `${baseURL}/ffmpeg-core.js`,
+        wasmURL: `${baseURL}/ffmpeg-core.wasm`
+      })
+      console.log('FFmpeg loaded successfully')
+      ffmpegInstance = ffmpeg
+      ffmpegLoading = false
+      return ffmpeg
+    } catch (error) {
+      console.error('FFmpeg load error:', error)
+      console.error('Error name:', error.name)
+      console.error('Error message:', error.message)
+      ffmpegLoading = false
+      throw error
+    }
   })()
 
   return ffmpegLoadPromise
+}
+
+/**
+ * Preload FFmpeg in the background
+ * Call this early (e.g., on setup page) to have ffmpeg ready when needed
+ * @returns {Promise<boolean>} True if loaded successfully
+ */
+export async function preloadFFmpeg() {
+  try {
+    console.log('Preloading FFmpeg...')
+    await getFFmpeg()
+    console.log('FFmpeg preloaded and ready')
+    return true
+  } catch (error) {
+    console.error('FFmpeg preload failed:', error)
+    return false
+  }
+}
+
+/**
+ * Check if FFmpeg is loaded and ready
+ * @returns {boolean}
+ */
+export function isFFmpegReady() {
+  return ffmpegInstance !== null
 }
 
 /**

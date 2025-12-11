@@ -82,6 +82,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { loadMetadataOnly, filterActivities } from '../utils/dataLoader'
+import { preloadFFmpeg } from '../utils/videoExport'
 
 const emit = defineEmits(['load'])
 
@@ -170,8 +171,17 @@ function loadRuns() {
   emit('load', Object.keys(filters).length > 0 ? filters : null)
 }
 
-// Load metadata on mount
+// Load metadata on mount and preload ffmpeg in background
 onMounted(async () => {
+  // Start preloading ffmpeg in background (don't await - let it load while user selects filters)
+  preloadFFmpeg().then(success => {
+    if (success) {
+      console.log('FFmpeg ready for video export')
+    } else {
+      console.warn('FFmpeg preload failed - video export will fall back to WebM')
+    }
+  })
+
   try {
     allActivities.value = await loadMetadataOnly()
     totalCount.value = allActivities.value.length
