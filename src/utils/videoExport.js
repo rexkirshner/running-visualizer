@@ -374,31 +374,21 @@ export async function convertVideo(webmBlob, speedupFactor, format = 'mp4') {
   const outputFile = `output.${format}`
   let args
 
-  if (format === 'mov') {
-    // ProRes for Final Cut Pro (high quality, large file)
-    args = [
-      '-i', 'input.webm',
-      '-filter:v', `setpts=PTS/${speedupFactor.toFixed(4)}`,
-      '-c:v', 'libx264',  // Use H.264 for better compatibility (ProRes not available in ffmpeg.wasm)
-      '-preset', 'slow',
-      '-crf', '18',
-      '-pix_fmt', 'yuv420p',
-      '-an',
-      outputFile
-    ]
-  } else {
-    // H.264 MP4 (good quality, smaller file)
-    args = [
-      '-i', 'input.webm',
-      '-filter:v', `setpts=PTS/${speedupFactor.toFixed(4)}`,
-      '-c:v', 'libx264',
-      '-preset', 'slow',
-      '-crf', '18',
-      '-pix_fmt', 'yuv420p',
-      '-an',
-      outputFile
-    ]
-  }
+  // Use setpts to adjust speed, then fps filter to set proper frame rate
+  // The -r 30 ensures output metadata is correct
+  const filterChain = `setpts=PTS/${speedupFactor.toFixed(4)},fps=30`
+
+  args = [
+    '-i', 'input.webm',
+    '-filter:v', filterChain,
+    '-c:v', 'libx264',
+    '-preset', 'slow',
+    '-crf', '18',
+    '-pix_fmt', 'yuv420p',
+    '-r', '30',  // Output frame rate
+    '-an',
+    outputFile
+  ]
 
   console.log('FFmpeg args:', args.join(' '))
   await ffmpeg.exec(args)
