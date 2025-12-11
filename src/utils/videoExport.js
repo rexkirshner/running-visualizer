@@ -192,8 +192,11 @@ export class VideoRecorder {
         console.log(`  Target duration: ${targetDuration}s`)
         console.log(`  Speedup needed: ${speedupFactor.toFixed(2)}x`)
         console.log(``)
-        console.log(`To fix video duration, run:`)
-        console.log(`  ffmpeg -i INPUT.webm -filter:v "setpts=PTS/${speedupFactor.toFixed(2)}" -an OUTPUT.webm`)
+        console.log(`To fix duration and convert for Final Cut Pro:`)
+        console.log(`  ffmpeg -i INPUT.webm -filter:v "setpts=PTS/${speedupFactor.toFixed(2)}" -c:v prores_ks -profile:v 3 -pix_fmt yuva444p10le OUTPUT.mov`)
+        console.log(``)
+        console.log(`Or for smaller file (H.264 MP4):`)
+        console.log(`  ffmpeg -i INPUT.webm -filter:v "setpts=PTS/${speedupFactor.toFixed(2)}" -c:v libx264 -crf 18 OUTPUT.mp4`)
 
         // Cleanup
         this.isRecording = false
