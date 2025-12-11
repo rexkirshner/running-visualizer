@@ -41,6 +41,33 @@
         />
       </div>
 
+      <!-- Runner Dot Settings -->
+      <div class="control-group runner-dot-settings">
+        <div class="checkbox-row">
+          <input
+            id="show-runner-dots"
+            type="checkbox"
+            :checked="showRunnerDots"
+            @change="handleShowRunnerDotsChange"
+          />
+          <label for="show-runner-dots">Show runner dots</label>
+        </div>
+        <div v-if="showRunnerDots" class="size-slider">
+          <label for="dot-size-slider">
+            Dot size: {{ runnerDotSize }}px
+          </label>
+          <input
+            id="dot-size-slider"
+            type="range"
+            min="3"
+            max="15"
+            step="1"
+            :value="runnerDotSize"
+            @input="handleRunnerDotSizeChange"
+          />
+        </div>
+      </div>
+
       <!-- Play All Filtered Button -->
       <div v-if="!selectedRunId && runs.length > 0" class="control-group">
         <button
@@ -158,12 +185,24 @@ const props = defineProps({
   progressAll: {
     type: Number,
     default: 0
+  },
+  /** Whether to show runner dots during animation */
+  showRunnerDots: {
+    type: Boolean,
+    default: true
+  },
+  /** Size of runner dots in pixels */
+  runnerDotSize: {
+    type: Number,
+    default: 6
   }
 })
 
 const emit = defineEmits([
   'update:selectedRunId',
   'update:duration',
+  'update:showRunnerDots',
+  'update:runnerDotSize',
   'play',
   'pause',
   'reset',
@@ -208,6 +247,14 @@ function handlePlayAll() {
 
 function handleResetAll() {
   emit('resetAll')
+}
+
+function handleShowRunnerDotsChange(event) {
+  emit('update:showRunnerDots', event.target.checked)
+}
+
+function handleRunnerDotSizeChange(event) {
+  emit('update:runnerDotSize', parseInt(event.target.value))
 }
 </script>
 
@@ -438,5 +485,47 @@ input[type="range"]:disabled {
 
 .progress-bar-all {
   background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.runner-dot-settings {
+  background: #f8fafc;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checkbox-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #3388ff;
+}
+
+.checkbox-row label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  cursor: pointer;
+}
+
+.size-slider {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.size-slider label {
+  font-size: 13px;
+  color: #555;
+}
+
+.size-slider input[type="range"] {
+  margin-top: 6px;
 }
 </style>

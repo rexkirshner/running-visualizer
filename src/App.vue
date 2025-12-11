@@ -62,8 +62,12 @@
       :progress="animationProgress"
       :is-animating-all="isAnimatingAll"
       :progress-all="animationProgressAll"
+      :show-runner-dots="showRunnerDots"
+      :runner-dot-size="runnerDotSize"
       @update:selected-run-id="handleRunSelect"
       @update:duration="handleDurationChange"
+      @update:show-runner-dots="handleShowRunnerDotsChange"
+      @update:runner-dot-size="handleRunnerDotSizeChange"
       @play="handlePlay"
       @pause="handlePause"
       @reset="handleReset"
@@ -148,6 +152,10 @@ const mapType = ref('streets')
 // Route color state
 const colorMode = ref('multiple') // 'single' or 'multiple'
 const singleColor = ref('#3388ff')
+
+// Runner dot state
+const showRunnerDots = ref(true)
+const runnerDotSize = ref(6)
 
 /**
  * Extract unique values from runs for filter dropdowns
@@ -428,6 +436,18 @@ function handleSingleColorChange(newColor) {
 }
 
 // ============================================
+// Runner Dot Handlers
+// ============================================
+
+function handleShowRunnerDotsChange(value) {
+  showRunnerDots.value = value
+}
+
+function handleRunnerDotSizeChange(value) {
+  runnerDotSize.value = value
+}
+
+// ============================================
 // Animation Handlers
 // ============================================
 
@@ -627,11 +647,13 @@ function animateAllRuns() {
         opacity: 0.7
       }).addTo(map)
 
-      // Add runner dot at the head of this route
-      const headPosition = partialCoordinates[partialCoordinates.length - 1]
-      const dot = createRunnerDot(map, headPosition, routeColor)
-      if (dot) {
-        runnerDotsAll.push(dot)
+      // Add runner dot at the head of this route (if enabled)
+      if (showRunnerDots.value) {
+        const headPosition = partialCoordinates[partialCoordinates.length - 1]
+        const dot = createRunnerDot(map, headPosition, routeColor, { radius: runnerDotSize.value })
+        if (dot) {
+          runnerDotsAll.push(dot)
+        }
       }
 
       // Add popup with run details
@@ -697,14 +719,20 @@ function animateRun() {
       opacity: 0.8
     }).addTo(map)
 
-    // Update runner dot at the head of the route
-    const headPosition = partialCoordinates[partialCoordinates.length - 1]
-    if (!runnerDot) {
-      // Create runner dot on first frame
-      runnerDot = createRunnerDot(map, headPosition, animationColor)
-    } else {
-      // Update position on subsequent frames
-      updateRunnerDotPosition(runnerDot, headPosition)
+    // Update runner dot at the head of the route (if enabled)
+    if (showRunnerDots.value) {
+      const headPosition = partialCoordinates[partialCoordinates.length - 1]
+      if (!runnerDot) {
+        // Create runner dot on first frame
+        runnerDot = createRunnerDot(map, headPosition, animationColor, { radius: runnerDotSize.value })
+      } else {
+        // Update position on subsequent frames
+        updateRunnerDotPosition(runnerDot, headPosition)
+      }
+    } else if (runnerDot) {
+      // Remove dot if disabled mid-animation
+      removeRunnerDot(map, runnerDot)
+      runnerDot = null
     }
 
     // Add popup with run details
