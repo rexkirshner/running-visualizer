@@ -47,7 +47,6 @@
           @click="handleToggleRecording"
           class="record-btn"
           :class="{ recording: isRecording }"
-          :disabled="isRecording"
         >
           <span class="record-indicator"></span>
           {{ isRecording ? 'Stop Recording' : 'Record' }}
