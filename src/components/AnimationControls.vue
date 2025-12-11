@@ -41,6 +41,19 @@
         />
       </div>
 
+      <!-- Recording Control -->
+      <div class="control-group recording-control">
+        <button
+          @click="handleToggleRecording"
+          class="record-btn"
+          :class="{ recording: isRecording }"
+        >
+          <span class="record-indicator"></span>
+          {{ isRecording ? 'Stop Recording' : 'Record' }}
+        </button>
+        <span v-if="isRecording" class="recording-status">Recording...</span>
+      </div>
+
       <!-- Runner Dot Settings -->
       <div class="control-group runner-dot-settings">
         <div class="checkbox-row">
@@ -195,6 +208,11 @@ const props = defineProps({
   runnerDotSize: {
     type: Number,
     default: 6
+  },
+  /** Whether currently recording video */
+  isRecording: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -208,7 +226,8 @@ const emit = defineEmits([
   'reset',
   'playAll',
   'pauseAll',
-  'resetAll'
+  'resetAll',
+  'toggleRecording'
 ])
 
 const isExpanded = ref(true)
@@ -255,6 +274,10 @@ function handleShowRunnerDotsChange(event) {
 
 function handleRunnerDotSizeChange(event) {
   emit('update:runnerDotSize', parseInt(event.target.value))
+}
+
+function handleToggleRecording() {
+  emit('toggleRecording')
 }
 </script>
 
@@ -527,5 +550,63 @@ input[type="range"]:disabled {
 
 .size-slider input[type="range"] {
   margin-top: 6px;
+}
+
+/* Recording Controls */
+.recording-control {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 12px;
+}
+
+.record-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 2px solid #dc2626;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: white;
+  color: #dc2626;
+}
+
+.record-btn:hover {
+  background: #fef2f2;
+}
+
+.record-btn.recording {
+  background: #dc2626;
+  color: white;
+}
+
+.record-btn.recording:hover {
+  background: #b91c1c;
+}
+
+.record-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #dc2626;
+}
+
+.record-btn.recording .record-indicator {
+  background: white;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.recording-status {
+  font-size: 13px;
+  color: #dc2626;
+  font-weight: 500;
 }
 </style>

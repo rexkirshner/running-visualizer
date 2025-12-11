@@ -64,6 +64,7 @@
       :progress-all="animationProgressAll"
       :show-runner-dots="showRunnerDots"
       :runner-dot-size="runnerDotSize"
+      :is-recording="isRecording"
       @update:selected-run-id="handleRunSelect"
       @update:duration="handleDurationChange"
       @update:show-runner-dots="handleShowRunnerDotsChange"
@@ -74,6 +75,7 @@
       @play-all="handlePlayAll"
       @pause-all="handlePauseAll"
       @reset-all="handleResetAll"
+      @toggle-recording="handleToggleRecording"
     />
 
     <div class="loading" v-if="loading">
@@ -98,6 +100,11 @@ import {
   removeAllRunnerDots,
   getPositionAtProgress
 } from './utils/runnerDot'
+import {
+  VideoRecorder,
+  downloadBlob,
+  generateFilename
+} from './utils/videoExport'
 import DateRangeFilter from './components/DateRangeFilter.vue'
 import LocationFilter from './components/LocationFilter.vue'
 import AnimationControls from './components/AnimationControls.vue'
@@ -156,6 +163,10 @@ const singleColor = ref('#3388ff')
 // Runner dot state
 const showRunnerDots = ref(true)
 const runnerDotSize = ref(6)
+
+// Recording state
+const isRecording = ref(false)
+let videoRecorder = null
 
 /**
  * Extract unique values from runs for filter dropdowns
@@ -448,6 +459,47 @@ function handleRunnerDotSizeChange(value) {
 }
 
 // ============================================
+// Recording Handlers
+// ============================================
+
+/**
+ * Toggle video recording on/off
+ * When starting, creates a new VideoRecorder
+ * When stopping, downloads the recorded video
+ */
+async function handleToggleRecording() {
+  if (isRecording.value) {
+    // Stop recording
+    if (videoRecorder) {
+      const blob = await videoRecorder.stop()
+      if (blob) {
+        const filename = generateFilename('run-animation')
+        downloadBlob(blob, filename)
+      }
+      videoRecorder = null
+    }
+    isRecording.value = false
+  } else {
+    // Start recording
+    const mapElement = mapContainer.value
+    if (!mapElement) {
+      console.error('Map container not found')
+      return
+    }
+
+    videoRecorder = new VideoRecorder(mapElement, {
+      width: 1920,
+      height: 1080,
+      frameRate: 30,
+      transparent: mapType.value === 'none'
+    })
+
+    await videoRecorder.start()
+    isRecording.value = true
+  }
+}
+
+// ============================================
 // Animation Handlers
 // ============================================
 
@@ -669,6 +721,11 @@ function animateAllRuns() {
     }
   })
 
+  // Capture frame if recording
+  if (isRecording.value && videoRecorder) {
+    videoRecorder.captureFrame()
+  }
+
   // Continue animation if not complete
   if (progress < 100) {
     animationFrameIdAll = requestAnimationFrame(animateAllRuns)
@@ -749,6 +806,11 @@ function animateRun() {
       const bounds = L.latLngBounds(partialCoordinates)
       map.fitBounds(bounds, { padding: [50, 50] })
     }
+  }
+
+  // Capture frame if recording
+  if (isRecording.value && videoRecorder) {
+    videoRecorder.captureFrame()
   }
 
   // Continue animation if not complete
