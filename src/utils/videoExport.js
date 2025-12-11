@@ -46,7 +46,6 @@ export class VideoRecorder {
     this.isRecording = false
     this.frameCount = 0
     this.stream = null
-    this.videoTrack = null
   }
 
   /**
@@ -69,9 +68,9 @@ export class VideoRecorder {
     this.ctx.fillStyle = '#000000'
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
 
-    // Create media stream with 0 fps - we control frame timing manually
-    this.stream = this.canvas.captureStream(0)
-    this.videoTrack = this.stream.getVideoTracks()[0]
+    // Create media stream - use fixed framerate for proper encoding
+    // We'll draw frames at our own pace; stream will capture what's on canvas
+    this.stream = this.canvas.captureStream(this.options.frameRate)
 
     // Determine codec
     const mimeType = 'video/webm;codecs=vp9'
@@ -117,19 +116,19 @@ export class VideoRecorder {
     }
 
     try {
-      // Find the map panes to capture (excludes controls)
-      const mapPane = this.element.querySelector('.leaflet-map-pane')
-      const targetElement = mapPane || this.element
-
-      // Capture DOM element to a temporary canvas
-      const capturedCanvas = await html2canvas(targetElement, {
+      // Capture the full element (controls hidden via CSS .recording-mode class)
+      const capturedCanvas = await html2canvas(this.element, {
         backgroundColor: '#000000',
         logging: false,
         useCORS: true,
         allowTaint: true,
         scale: 1,
-        width: targetElement.offsetWidth,
-        height: targetElement.offsetHeight
+        width: this.element.offsetWidth,
+        height: this.element.offsetHeight,
+        ignoreElements: (element) => {
+          // Ignore Leaflet controls
+          return element.classList && element.classList.contains('leaflet-control-container')
+        }
       })
 
       // Clear our recording canvas and draw the captured frame
@@ -147,11 +146,6 @@ export class VideoRecorder {
       const destY = (this.canvas.height - destHeight) / 2
 
       this.ctx.drawImage(capturedCanvas, destX, destY, destWidth, destHeight)
-
-      // Request a new frame from the video track
-      if (this.videoTrack && this.videoTrack.requestFrame) {
-        this.videoTrack.requestFrame()
-      }
 
       this.frameCount++
 
@@ -189,7 +183,6 @@ export class VideoRecorder {
         this.canvas = null
         this.ctx = null
         this.stream = null
-        this.videoTrack = null
 
         resolve(blob)
       }
