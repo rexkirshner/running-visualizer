@@ -9,7 +9,7 @@
 
 import html2canvas from 'html2canvas'
 import { FFmpeg } from '@ffmpeg/ffmpeg'
-import { fetchFile } from '@ffmpeg/util'
+import { fetchFile, toBlobURL } from '@ffmpeg/util'
 
 // Singleton FFmpeg instance (lazy loaded)
 let ffmpegInstance = null
@@ -44,13 +44,19 @@ async function getFFmpeg() {
     })
 
     // Use unpkg CDN for single-threaded version (works without SharedArrayBuffer)
+    // toBlobURL fetches files and creates blob URLs to avoid CORS/import issues
     const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd'
     console.log('FFmpeg loading from:', baseURL)
 
     try {
+      console.log('Creating blob URLs for ffmpeg-core files...')
+      const coreURL = await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript')
+      const wasmURL = await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm')
+      console.log('Blob URLs created, loading ffmpeg...')
+
       await ffmpeg.load({
-        coreURL: `${baseURL}/ffmpeg-core.js`,
-        wasmURL: `${baseURL}/ffmpeg-core.wasm`
+        coreURL,
+        wasmURL
       })
       console.log('FFmpeg loaded successfully')
       ffmpegInstance = ffmpeg
