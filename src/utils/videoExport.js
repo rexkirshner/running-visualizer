@@ -1,23 +1,8 @@
 /**
  * Video Export Utility
  *
- * Provides functions for capturing map animations to WebM video files
- * with optional transparency (alpha channel) support.
- *
- * Usage:
- *   import { VideoRecorder } from './utils/videoExport'
- *
- *   const recorder = new VideoRecorder(mapElement, {
- *     width: 1920,
- *     height: 1080,
- *     frameRate: 30,
- *     transparent: true
- *   })
- *
- *   await recorder.start()
- *   // ... run animation ...
- *   await recorder.captureFrame() // Call each animation frame
- *   const blob = await recorder.stop()
+ * Provides functions for capturing map animations to WebM video files.
+ * Uses frame-by-frame capture for accurate timing.
  *
  * @module utils/videoExport
  */
@@ -32,12 +17,12 @@ const DEFAULT_OPTIONS = {
   width: 1920,
   height: 1080,
   frameRate: 30,
-  transparent: true,
   videoBitsPerSecond: 8000000 // 8 Mbps for good quality
 }
 
 /**
  * VideoRecorder class for capturing DOM animations to WebM
+ * Uses manual frame capture for accurate timing control
  */
 export class VideoRecorder {
   /**
@@ -47,8 +32,7 @@ export class VideoRecorder {
    * @param {Object} [options={}] - Recording options
    * @param {number} [options.width=1920] - Output video width
    * @param {number} [options.height=1080] - Output video height
-   * @param {number} [options.frameRate=30] - Target frame rate
-   * @param {boolean} [options.transparent=true] - Enable alpha channel
+   * @param {number} [options.frameRate=30] - Target frame rate for output video
    * @param {number} [options.videoBitsPerSecond=8000000] - Video bitrate
    */
   constructor(element, options = {}) {
@@ -61,6 +45,8 @@ export class VideoRecorder {
     this.chunks = []
     this.isRecording = false
     this.frameCount = 0
+    this.stream = null
+    this.videoTrack = null
   }
 
   /**
@@ -77,31 +63,21 @@ export class VideoRecorder {
     this.canvas = document.createElement('canvas')
     this.canvas.width = this.options.width
     this.canvas.height = this.options.height
-    this.ctx = this.canvas.getContext('2d', { alpha: this.options.transparent })
+    this.ctx = this.canvas.getContext('2d')
 
-    // Clear canvas (transparent if enabled)
-    if (this.options.transparent) {
-      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
-    } else {
-      this.ctx.fillStyle = '#ffffff'
-      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
-    }
+    // Fill with black initially
+    this.ctx.fillStyle = '#000000'
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
 
-    // Create media stream from canvas
-    const stream = this.canvas.captureStream(this.options.frameRate)
+    // Create media stream with 0 fps - we control frame timing manually
+    this.stream = this.canvas.captureStream(0)
+    this.videoTrack = this.stream.getVideoTracks()[0]
 
-    // Determine codec - VP9 supports alpha channel
-    const mimeType = this.options.transparent
-      ? 'video/webm;codecs=vp9'
-      : 'video/webm;codecs=vp8'
-
-    // Check if the browser supports the codec
-    if (!MediaRecorder.isTypeSupported(mimeType)) {
-      console.warn(`VideoRecorder: ${mimeType} not supported, falling back to default`)
-    }
+    // Determine codec
+    const mimeType = 'video/webm;codecs=vp9'
 
     // Create MediaRecorder
-    this.mediaRecorder = new MediaRecorder(stream, {
+    this.mediaRecorder = new MediaRecorder(this.stream, {
       mimeType: MediaRecorder.isTypeSupported(mimeType) ? mimeType : 'video/webm',
       videoBitsPerSecond: this.options.videoBitsPerSecond
     })
@@ -114,16 +90,18 @@ export class VideoRecorder {
       }
     }
 
-    // Start recording
-    this.mediaRecorder.start()
+    // Start recording - collect data every 100ms
+    this.mediaRecorder.start(100)
     this.isRecording = true
     this.frameCount = 0
+
+    // Add CSS class to hide UI elements during recording
+    this.element.classList.add('recording-mode')
 
     console.log('VideoRecorder: Started recording', {
       width: this.options.width,
       height: this.options.height,
-      frameRate: this.options.frameRate,
-      transparent: this.options.transparent
+      frameRate: this.options.frameRate
     })
   }
 
@@ -139,17 +117,41 @@ export class VideoRecorder {
     }
 
     try {
-      // Capture DOM element to canvas
-      const capturedCanvas = await html2canvas(this.element, {
-        canvas: this.canvas,
-        width: this.element.offsetWidth,
-        height: this.element.offsetHeight,
-        scale: this.options.width / this.element.offsetWidth,
-        backgroundColor: this.options.transparent ? null : '#ffffff',
+      // Find the map panes to capture (excludes controls)
+      const mapPane = this.element.querySelector('.leaflet-map-pane')
+      const targetElement = mapPane || this.element
+
+      // Capture DOM element to a temporary canvas
+      const capturedCanvas = await html2canvas(targetElement, {
+        backgroundColor: '#000000',
         logging: false,
         useCORS: true,
-        allowTaint: true
+        allowTaint: true,
+        scale: 1,
+        width: targetElement.offsetWidth,
+        height: targetElement.offsetHeight
       })
+
+      // Clear our recording canvas and draw the captured frame
+      this.ctx.fillStyle = '#000000'
+      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
+
+      // Calculate scaling to fit captured content in output dimensions
+      const scaleX = this.canvas.width / capturedCanvas.width
+      const scaleY = this.canvas.height / capturedCanvas.height
+      const scale = Math.min(scaleX, scaleY)
+
+      const destWidth = capturedCanvas.width * scale
+      const destHeight = capturedCanvas.height * scale
+      const destX = (this.canvas.width - destWidth) / 2
+      const destY = (this.canvas.height - destHeight) / 2
+
+      this.ctx.drawImage(capturedCanvas, destX, destY, destWidth, destHeight)
+
+      // Request a new frame from the video track
+      if (this.videoTrack && this.videoTrack.requestFrame) {
+        this.videoTrack.requestFrame()
+      }
 
       this.frameCount++
 
@@ -173,6 +175,9 @@ export class VideoRecorder {
       return null
     }
 
+    // Remove recording mode CSS class
+    this.element.classList.remove('recording-mode')
+
     return new Promise((resolve) => {
       this.mediaRecorder.onstop = () => {
         const blob = new Blob(this.chunks, { type: 'video/webm' })
@@ -183,6 +188,8 @@ export class VideoRecorder {
         this.chunks = []
         this.canvas = null
         this.ctx = null
+        this.stream = null
+        this.videoTrack = null
 
         resolve(blob)
       }

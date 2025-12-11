@@ -901,6 +901,11 @@ onUnmounted(() => {
   background: transparent !important;
 }
 
+/* Hide UI elements during recording */
+#map.recording-mode :deep(.leaflet-control-container) {
+  display: none !important;
+}
+
 /* Position date filter on top-left */
 .date-filter-position {
   left: 20px;
