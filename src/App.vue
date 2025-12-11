@@ -473,13 +473,18 @@ async function handleToggleRecording() {
   if (isRecording.value) {
     // Stop recording
     if (videoRecorder) {
+      console.log('Stopping recording...')
       const result = await videoRecorder.stop()
+      console.log('Recording stopped, result:', result)
       if (result && result.blob) {
+        console.log('WebM blob size:', result.blob.size)
         console.log('Converting to MP4...')
         try {
           // Convert WebM to MP4 with corrected duration
           const mp4Blob = await convertVideo(result.blob, result.speedupFactor, 'mp4')
+          console.log('Conversion complete, MP4 size:', mp4Blob.size)
           const filename = generateFilename('run-animation', 'mp4')
+          console.log('Downloading:', filename)
           downloadBlob(mp4Blob, filename)
         } catch (error) {
           console.error('Conversion failed, downloading WebM instead:', error)
@@ -487,6 +492,8 @@ async function handleToggleRecording() {
           const filename = generateFilename('run-animation', 'webm')
           downloadBlob(result.blob, filename)
         }
+      } else {
+        console.error('No result or blob from recording')
       }
       videoRecorder = null
     }
