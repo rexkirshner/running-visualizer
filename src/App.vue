@@ -8,7 +8,7 @@
 
     <!-- Map View -->
     <template v-else>
-      <div id="map" ref="mapContainer"></div>
+      <div id="map" ref="mapContainer" :class="{ 'transparent-bg': mapType === 'none' }"></div>
 
       <!-- Map Type Selector (top-center) -->
       <MapTypeSelector
@@ -785,9 +785,26 @@ onUnmounted(() => {
   position: relative;
 }
 
+#app:has(.transparent-bg) {
+  background: transparent !important;
+}
+
 #map {
   height: 100%;
   width: 100%;
+}
+
+/* Transparent background mode for export */
+#map.transparent-bg {
+  background: transparent !important;
+}
+
+#map.transparent-bg :deep(.leaflet-container) {
+  background: transparent !important;
+}
+
+#map.transparent-bg :deep(.leaflet-pane) {
+  background: transparent !important;
 }
 
 /* Position date filter on top-left */
