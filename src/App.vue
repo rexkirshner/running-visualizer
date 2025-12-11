@@ -167,6 +167,7 @@ const runnerDotSize = ref(6)
 // Recording state
 const isRecording = ref(false)
 let videoRecorder = null
+let recordingFrameCount = 0 // Frame counter for frame-based animation during recording
 
 /**
  * Extract unique values from runs for filter dropdowns
@@ -495,6 +496,7 @@ async function handleToggleRecording() {
     })
 
     await videoRecorder.start()
+    recordingFrameCount = 0 // Reset frame counter
     isRecording.value = true
   }
 }
@@ -664,13 +666,23 @@ function handleResetAll() {
 /**
  * Main animation loop for all filtered runs
  * Progressively draws all routes simultaneously
+ * When recording, waits for frame capture (slower but accurate)
  */
-function animateAllRuns() {
+async function animateAllRuns() {
   if (!isAnimatingAll.value) return
 
-  const currentTime = performance.now()
-  const elapsed = currentTime - animationStartTimeAll
-  const progress = Math.min((elapsed / (animationDuration.value * 1000)) * 100, 100)
+  let progress
+  if (isRecording.value) {
+    // Frame-based progress when recording (ensures consistent frame capture)
+    const totalFrames = animationDuration.value * 30 // 30fps target
+    progress = Math.min((recordingFrameCount / totalFrames) * 100, 100)
+    recordingFrameCount++
+  } else {
+    // Time-based progress for normal playback
+    const currentTime = performance.now()
+    const elapsed = currentTime - animationStartTimeAll
+    progress = Math.min((elapsed / (animationDuration.value * 1000)) * 100, 100)
+  }
 
   animationProgressAll.value = progress
 
@@ -721,14 +733,19 @@ function animateAllRuns() {
     }
   })
 
-  // Capture frame if recording
+  // Capture frame if recording (await to ensure frame is captured before continuing)
   if (isRecording.value && videoRecorder) {
-    videoRecorder.captureFrame()
+    await videoRecorder.captureFrame()
   }
 
   // Continue animation if not complete
   if (progress < 100) {
-    animationFrameIdAll = requestAnimationFrame(animateAllRuns)
+    if (isRecording.value) {
+      // When recording, use setTimeout to allow UI to update between frames
+      setTimeout(() => requestAnimationFrame(animateAllRuns), 0)
+    } else {
+      animationFrameIdAll = requestAnimationFrame(animateAllRuns)
+    }
   } else {
     // Animation complete - clean up runner dots
     removeAllRunnerDots(map, runnerDotsAll)
@@ -741,13 +758,23 @@ function animateAllRuns() {
 /**
  * Main animation loop using requestAnimationFrame
  * Progressively draws the route from start to finish
+ * When recording, waits for frame capture (slower but accurate)
  */
-function animateRun() {
+async function animateRun() {
   if (!isAnimating.value) return
 
-  const currentTime = performance.now()
-  const elapsed = currentTime - animationStartTime
-  const progress = Math.min((elapsed / (animationDuration.value * 1000)) * 100, 100)
+  let progress
+  if (isRecording.value) {
+    // Frame-based progress when recording (ensures consistent frame capture)
+    const totalFrames = animationDuration.value * 30 // 30fps target
+    progress = Math.min((recordingFrameCount / totalFrames) * 100, 100)
+    recordingFrameCount++
+  } else {
+    // Time-based progress for normal playback
+    const currentTime = performance.now()
+    const elapsed = currentTime - animationStartTime
+    progress = Math.min((elapsed / (animationDuration.value * 1000)) * 100, 100)
+  }
 
   animationProgress.value = progress
 
@@ -808,14 +835,19 @@ function animateRun() {
     }
   }
 
-  // Capture frame if recording
+  // Capture frame if recording (await to ensure frame is captured before continuing)
   if (isRecording.value && videoRecorder) {
-    videoRecorder.captureFrame()
+    await videoRecorder.captureFrame()
   }
 
   // Continue animation if not complete
   if (progress < 100) {
-    animationFrameId = requestAnimationFrame(animateRun)
+    if (isRecording.value) {
+      // When recording, use setTimeout to allow UI to update between frames
+      setTimeout(() => requestAnimationFrame(animateRun), 0)
+    } else {
+      animationFrameId = requestAnimationFrame(animateRun)
+    }
   } else {
     // Animation complete
     isAnimating.value = false
