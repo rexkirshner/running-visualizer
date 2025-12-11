@@ -101,10 +101,9 @@ import {
   getPositionAtProgress
 } from './utils/runnerDot'
 import {
-  VideoRecorder,
+  PNGSequenceRecorder,
   downloadBlob,
-  generateFilename,
-  convertVideo
+  generateFilename
 } from './utils/videoExport'
 import DateRangeFilter from './components/DateRangeFilter.vue'
 import LocationFilter from './components/LocationFilter.vue'
@@ -167,7 +166,7 @@ const runnerDotSize = ref(1)
 
 // Recording state
 const isRecording = ref(false)
-let videoRecorder = null
+let pngRecorder = null
 let recordingFrameCount = 0 // Frame counter for frame-based animation during recording
 
 /**
@@ -468,40 +467,26 @@ function handleRunnerDotSizeChange(value) {
 // ============================================
 
 /**
- * Toggle video recording on/off
- * When starting, creates a new VideoRecorder
- * When stopping, downloads the recorded video
+ * Toggle PNG sequence recording on/off
+ * When starting, creates a new PNGSequenceRecorder
+ * When stopping, downloads ZIP of PNG frames
  */
 async function handleToggleRecording() {
   if (isRecording.value) {
     // Stop recording
-    if (videoRecorder) {
+    if (pngRecorder) {
       console.log('Stopping recording...')
-      const result = await videoRecorder.stop()
+      const result = await pngRecorder.stop()
       console.log('Recording stopped, result:', result)
       if (result && result.blob) {
-        console.log('WebM blob size:', result.blob.size)
-
-        // Download WebM first for comparison
-        const webmFilename = generateFilename('run-animation', 'webm')
-        console.log('Downloading WebM:', webmFilename)
-        downloadBlob(result.blob, webmFilename)
-
-        // Then convert and download MP4
-        console.log('Converting to MP4...')
-        try {
-          const mp4Blob = await convertVideo(result.blob, result.speedupFactor, 'mp4')
-          console.log('Conversion complete, MP4 size:', mp4Blob.size)
-          const mp4Filename = generateFilename('run-animation', 'mp4')
-          console.log('Downloading MP4:', mp4Filename)
-          downloadBlob(mp4Blob, mp4Filename)
-        } catch (error) {
-          console.error('MP4 conversion failed:', error)
-        }
+        // Download ZIP file containing PNG frames
+        const filename = generateFilename('run-animation-frames', 'zip')
+        console.log('Downloading:', filename)
+        downloadBlob(result.blob, filename)
       } else {
         console.error('No result or blob from recording')
       }
-      videoRecorder = null
+      pngRecorder = null
     }
     isRecording.value = false
   } else {
@@ -512,14 +497,14 @@ async function handleToggleRecording() {
       return
     }
 
-    videoRecorder = new VideoRecorder(mapElement, {
-      width: 1280,
-      height: 720,
+    pngRecorder = new PNGSequenceRecorder(mapElement, {
+      width: 1920,  // Higher resolution for PNG sequence
+      height: 1080,
       frameRate: 30,
       targetDuration: animationDuration.value
     })
 
-    await videoRecorder.start()
+    await pngRecorder.start()
     recordingFrameCount = 0 // Reset frame counter
     isRecording.value = true
   }
@@ -758,8 +743,8 @@ async function animateAllRuns() {
   })
 
   // Capture frame if recording (await to ensure frame is captured before continuing)
-  if (isRecording.value && videoRecorder) {
-    await videoRecorder.captureFrame()
+  if (isRecording.value && pngRecorder) {
+    await pngRecorder.captureFrame()
   }
 
   // Continue animation if not complete
@@ -860,8 +845,8 @@ async function animateRun() {
   }
 
   // Capture frame if recording (await to ensure frame is captured before continuing)
-  if (isRecording.value && videoRecorder) {
-    await videoRecorder.captureFrame()
+  if (isRecording.value && pngRecorder) {
+    await pngRecorder.captureFrame()
   }
 
   // Continue animation if not complete

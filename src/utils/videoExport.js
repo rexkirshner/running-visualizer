@@ -10,6 +10,7 @@
 import html2canvas from 'html2canvas'
 import { FFmpeg } from '@ffmpeg/ffmpeg'
 import { fetchFile, toBlobURL } from '@ffmpeg/util'
+import JSZip from 'jszip'
 
 // Singleton FFmpeg instance (lazy loaded)
 let ffmpegInstance = null
@@ -317,6 +318,200 @@ export class VideoRecorder {
    */
   get frames() {
     return this.frameCount
+  }
+}
+
+/**
+ * PNGSequenceRecorder class for capturing DOM animations as PNG image sequences
+ * Exports a ZIP file containing numbered PNG frames with transparency support
+ */
+export class PNGSequenceRecorder {
+  /**
+   * Create a new PNGSequenceRecorder
+   *
+   * @param {HTMLElement} element - DOM element to capture (e.g., map container)
+   * @param {Object} [options={}] - Recording options
+   * @param {number} [options.width=1920] - Output image width
+   * @param {number} [options.height=1080] - Output image height
+   * @param {number} [options.frameRate=30] - Target frame rate (frames per second of final video)
+   * @param {number} [options.targetDuration=10] - Target duration in seconds
+   */
+  constructor(element, options = {}) {
+    this.element = element
+    this.options = {
+      width: options.width || 1920,
+      height: options.height || 1080,
+      frameRate: options.frameRate || 30,
+      targetDuration: options.targetDuration || 10
+    }
+
+    this.frames = []
+    this.isRecording = false
+    this.frameCount = 0
+    this.startTime = null
+  }
+
+  /**
+   * Initialize the recorder and start capturing
+   * @returns {Promise<void>}
+   */
+  async start() {
+    if (this.isRecording) {
+      console.warn('PNGSequenceRecorder: Already recording')
+      return
+    }
+
+    this.frames = []
+    this.frameCount = 0
+    this.isRecording = true
+    this.startTime = performance.now()
+
+    // Add CSS class to hide UI elements during recording
+    this.element.classList.add('recording-mode')
+
+    console.log('PNGSequenceRecorder: Started recording', {
+      width: this.options.width,
+      height: this.options.height,
+      frameRate: this.options.frameRate,
+      targetDuration: this.options.targetDuration,
+      expectedFrames: this.options.frameRate * this.options.targetDuration
+    })
+  }
+
+  /**
+   * Capture the current frame from the DOM element as PNG
+   * Call this method on each animation frame you want to capture
+   *
+   * @returns {Promise<void>}
+   */
+  async captureFrame() {
+    if (!this.isRecording || !this.element) {
+      return
+    }
+
+    try {
+      // Capture with transparent background
+      const capturedCanvas = await html2canvas(this.element, {
+        backgroundColor: null, // Transparent background
+        logging: false,
+        useCORS: true,
+        allowTaint: true,
+        scale: 1,
+        width: this.element.offsetWidth,
+        height: this.element.offsetHeight,
+        ignoreElements: (element) => {
+          // Ignore Leaflet controls
+          return element.classList && element.classList.contains('leaflet-control-container')
+        }
+      })
+
+      // Create output canvas at target resolution
+      const outputCanvas = document.createElement('canvas')
+      outputCanvas.width = this.options.width
+      outputCanvas.height = this.options.height
+      const ctx = outputCanvas.getContext('2d')
+
+      // Keep transparent (don't fill background)
+      ctx.clearRect(0, 0, outputCanvas.width, outputCanvas.height)
+
+      // Calculate scaling to fit captured content in output dimensions
+      const scaleX = outputCanvas.width / capturedCanvas.width
+      const scaleY = outputCanvas.height / capturedCanvas.height
+      const scale = Math.min(scaleX, scaleY)
+
+      const destWidth = capturedCanvas.width * scale
+      const destHeight = capturedCanvas.height * scale
+      const destX = (outputCanvas.width - destWidth) / 2
+      const destY = (outputCanvas.height - destHeight) / 2
+
+      ctx.drawImage(capturedCanvas, destX, destY, destWidth, destHeight)
+
+      // Convert to PNG blob
+      const blob = await new Promise(resolve => outputCanvas.toBlob(resolve, 'image/png'))
+      this.frames.push(blob)
+      this.frameCount++
+
+      // Log progress periodically
+      if (this.frameCount % 30 === 0) {
+        console.log(`PNGSequenceRecorder: Captured ${this.frameCount} frames`)
+      }
+    } catch (error) {
+      console.error('PNGSequenceRecorder: Frame capture failed', error)
+    }
+  }
+
+  /**
+   * Stop recording and return a ZIP file containing all PNG frames
+   *
+   * @returns {Promise<{blob: Blob, frameCount: number, frameRate: number}>}
+   */
+  async stop() {
+    if (!this.isRecording) {
+      console.warn('PNGSequenceRecorder: Not recording')
+      return null
+    }
+
+    // Remove recording mode CSS class
+    this.element.classList.remove('recording-mode')
+
+    const actualDuration = (performance.now() - this.startTime) / 1000
+
+    console.log(`PNGSequenceRecorder: Stopped.`)
+    console.log(`  Frames: ${this.frameCount}`)
+    console.log(`  Actual capture duration: ${actualDuration.toFixed(1)}s`)
+    console.log(`  Target playback duration: ${this.options.targetDuration}s`)
+    console.log(`  Frame rate for import: ${this.options.frameRate}fps`)
+
+    // Create ZIP file
+    console.log('PNGSequenceRecorder: Creating ZIP file...')
+    const zip = new JSZip()
+    const folder = zip.folder('frames')
+
+    // Add frames with zero-padded numbering
+    const padLength = String(this.frames.length).length
+    for (let i = 0; i < this.frames.length; i++) {
+      const frameNum = String(i + 1).padStart(Math.max(padLength, 4), '0')
+      folder.file(`frame_${frameNum}.png`, this.frames[i])
+    }
+
+    // Generate ZIP blob
+    const zipBlob = await zip.generateAsync({
+      type: 'blob',
+      compression: 'DEFLATE',
+      compressionOptions: { level: 1 } // Fast compression (PNGs are already compressed)
+    }, (metadata) => {
+      if (metadata.percent % 10 === 0) {
+        console.log(`PNGSequenceRecorder: ZIP progress ${metadata.percent.toFixed(0)}%`)
+      }
+    })
+
+    console.log(`PNGSequenceRecorder: ZIP created (${(zipBlob.size / 1024 / 1024).toFixed(2)} MB)`)
+    console.log(``)
+    console.log(`Import instructions for Final Cut Pro:`)
+    console.log(`  1. Unzip the file`)
+    console.log(`  2. File > Import > Media`)
+    console.log(`  3. Select the 'frames' folder`)
+    console.log(`  4. In import settings, set frame rate to ${this.options.frameRate}fps`)
+
+    // Cleanup
+    this.isRecording = false
+    const result = {
+      blob: zipBlob,
+      frameCount: this.frameCount,
+      frameRate: this.options.frameRate
+    }
+    this.frames = []
+    this.startTime = null
+
+    return result
+  }
+
+  /**
+   * Check if currently recording
+   * @returns {boolean}
+   */
+  get recording() {
+    return this.isRecording
   }
 }
 

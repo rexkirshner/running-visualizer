@@ -220,3 +220,103 @@ Quick navigation to specific work.
 3. **Decisions** - Link to DECISIONS.md for full rationale
 4. **Work In Progress** - Detailed enough for takeover
 5. **TodoWrite State** - What was accomplished vs. pending
+## Session 6 - 2025-12-07
+
+**Duration:** 2h | **Focus:** Add filtering, favicon, and route animation | **Status:** ✅
+
+### TL;DR
+- Added date range and location filtering (city, state, country) with modular components
+- Integrated location data from activities-location.csv, auto-filtered treadmill runs
+- Created shoe emoji favicon after 3 failed custom SVG attempts
+- Implemented progressive route animation with 5-60s configurable duration
+- Hide static routes when animating for clean visualization
+
+### Problem Solved
+**Issue:** Map showed all 2,277 runs at once with no way to filter or explore individual routes. Needed ability to filter by date/location and visualize individual route progression.
+
+**Constraints:**
+- Must maintain modularity and documentation standards
+- Large dataset (2,277 runs) requires efficient filtering
+- Animation must be smooth (60fps) and work with varying route complexities
+- Location data in separate CSV file
+
+**Approach:**
+1. Created separate filter components (DateRangeFilter, LocationFilter) with props/events
+2. Combined filters in single computed property for efficient re-rendering
+3. Used requestAnimationFrame for smooth 60fps animation loop
+4. Progressive polyline drawing - slice coordinates based on time interpolation
+5. Hide static routes during animation by early return in renderRuns()
+
+**Why this approach:**
+- Modular components enable independent testing and reuse
+- Computed properties automatically handle filter combination
+- requestAnimationFrame provides consistent timing independent of frame rate
+- Time-based interpolation (performance.now()) allows pause/resume with preserved progress
+- Early return pattern cleanly separates animation state from static rendering
+
+### Decisions
+- **Animation Architecture:** Progressive polyline drawing vs. marker movement → Chose polyline for full route visualization. See implementation in App.vue:357-413
+- **Filter Combination:** Multiple computed properties vs. single combined filter → Single computed for efficiency (filteredRuns)
+- **Location Data:** Auto-detect from GPS vs. pre-computed CSV → Used CSV for accuracy and performance
+- **Favicon Solution:** Custom SVG vs. emoji → Emoji after recognizability issues with custom designs
+
+### Files
+**NEW:** `src/components/DateRangeFilter.vue:1-100` - Date range picker with start/end inputs and reset
+**NEW:** `src/components/LocationFilter.vue:1-206` - City/state/country dropdowns with unique value extraction
+**NEW:** `src/components/AnimationControls.vue:1-332` - Route animation control panel (run selector, duration slider, play/pause/reset, progress bar)
+**NEW:** `public/favicon.svg:1-3` - Shoe emoji favicon (👟)
+**MOD:** `src/utils/dataLoader.js:1-150` - Added loadLocationsCSV(), mergeActivityData(), treadmill filtering
+**MOD:** `src/App.vue:56-421` - Integrated filters, animation state management, requestAnimationFrame loop
+**MOD:** `vite.config.js:7` - Changed port from 3000 to 3300
+
+### Mental Models
+
+**Current understanding:**
+- The application has three main concerns: data loading, filtering, and visualization
+- Data flows: CSV → dataLoader → App.vue state → computed filters → Leaflet rendering
+- Animation is time-based, not frame-based, allowing consistent playback speed
+- Static and animated routes are mutually exclusive display states
+
+**Key insights:**
+- requestAnimationFrame provides ~60fps but timing must use performance.now() for accuracy
+- Leaflet polylines can be removed/added efficiently - no need for complex pooling
+- Vue's computed properties handle multi-filter combinations elegantly
+- Treadmill runs have no GPS data - must filter before attempting GPX load
+
+**Gotchas discovered:**
+- Custom SVG favicons are hard to make recognizable at 16x16 - emoji is pragmatic solution
+- Animation pause/resume requires calculating elapsed time offset: `startTime = now - (progress/100 * duration * 1000)`
+- Must clear animationFrameId in onUnmounted to prevent memory leaks
+- renderRuns() must check both isAnimating AND selectedRunId to handle all states
+
+### Work In Progress
+**Status:** No incomplete work - all features fully implemented and tested
+
+**Completed tasks:**
+- Date range filtering with DateRangeFilter component
+- Location filtering with city/state/country dropdowns
+- Favicon with shoe emoji
+- Route animation with progressive drawing
+- Hide static routes during animation
+
+### TodoWrite State
+**Completed:**
+- ✅ Add date range filtering
+- ✅ Load and merge location data
+- ✅ Create location filter component
+- ✅ Filter out treadmill runs automatically
+- ✅ Create favicon
+- ✅ Implement route animation with AnimationControls
+- ✅ Progressive polyline drawing
+- ✅ Hide static routes during animation
+
+**In Progress:** None
+
+### Next Session
+**Priority:**
+- Wait for user feedback on current features
+- Potential enhancements: color coding by pace/distance, route clustering, keyboard shortcuts
+
+**Blockers:** None - all features working in dev server on localhost:3300
+
+---
