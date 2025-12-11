@@ -155,15 +155,15 @@ let polylines = [] // Store polyline references for clearing
 let currentTileLayer = null // Current map tile layer
 
 // Map type state
-const mapType = ref('streets')
+const mapType = ref('none')
 
 // Route color state
-const colorMode = ref('multiple') // 'single' or 'multiple'
+const colorMode = ref('single') // 'single' or 'multiple'
 const singleColor = ref('#3388ff')
 
 // Runner dot state
 const showRunnerDots = ref(true)
-const runnerDotSize = ref(6)
+const runnerDotSize = ref(1)
 
 // Recording state
 const isRecording = ref(false)
@@ -249,11 +249,14 @@ async function handleSetupLoad(filters) {
   // Initialize Leaflet map centered on Southern California
   map = L.map(mapContainer.value).setView([34.0, -118.4], 11)
 
-  // Add initial tile layer (OpenStreetMap)
-  currentTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    maxZoom: 19
-  }).addTo(map)
+  // Add initial tile layer based on mapType default
+  const initialTileConfig = tileLayers[mapType.value]
+  if (initialTileConfig) {
+    currentTileLayer = L.tileLayer(initialTileConfig.url, {
+      attribution: initialTileConfig.attribution,
+      maxZoom: initialTileConfig.maxZoom
+    }).addTo(map)
+  }
 
   // Load and display runs with filters
   try {
