@@ -43,9 +43,9 @@ async function getFFmpeg() {
       console.log(`FFmpeg progress: ${(progress * 100).toFixed(0)}%`)
     })
 
-    // Use unpkg CDN for single-threaded version (works without SharedArrayBuffer)
+    // Use unpkg CDN for single-threaded ESM version (works without SharedArrayBuffer)
     // toBlobURL fetches files and creates blob URLs to avoid CORS/import issues
-    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd'
+    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm'
     console.log('FFmpeg loading from:', baseURL)
 
     try {
