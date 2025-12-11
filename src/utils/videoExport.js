@@ -14,10 +14,11 @@ import html2canvas from 'html2canvas'
  * @constant {Object}
  */
 const DEFAULT_OPTIONS = {
-  width: 1920,
-  height: 1080,
+  width: 1280,  // Lower resolution for faster capture
+  height: 720,
   frameRate: 30,
-  videoBitsPerSecond: 8000000 // 8 Mbps for good quality
+  videoBitsPerSecond: 5000000,
+  targetDuration: 10 // Target video duration in seconds
 }
 
 /**
@@ -46,6 +47,7 @@ export class VideoRecorder {
     this.isRecording = false
     this.frameCount = 0
     this.stream = null
+    this.startTime = null
   }
 
   /**
@@ -97,10 +99,14 @@ export class VideoRecorder {
     // Add CSS class to hide UI elements during recording
     this.element.classList.add('recording-mode')
 
+    // Track start time for duration calculation
+    this.startTime = performance.now()
+
     console.log('VideoRecorder: Started recording', {
       width: this.options.width,
       height: this.options.height,
-      frameRate: this.options.frameRate
+      frameRate: this.options.frameRate,
+      targetDuration: this.options.targetDuration
     })
   }
 
@@ -175,7 +181,19 @@ export class VideoRecorder {
     return new Promise((resolve) => {
       this.mediaRecorder.onstop = () => {
         const blob = new Blob(this.chunks, { type: 'video/webm' })
-        console.log(`VideoRecorder: Stopped. Captured ${this.frameCount} frames, ${(blob.size / 1024 / 1024).toFixed(2)} MB`)
+        const actualDuration = (performance.now() - this.startTime) / 1000
+        const targetDuration = this.options.targetDuration
+        const speedupFactor = actualDuration / targetDuration
+
+        console.log(`VideoRecorder: Stopped.`)
+        console.log(`  Frames: ${this.frameCount}`)
+        console.log(`  Size: ${(blob.size / 1024 / 1024).toFixed(2)} MB`)
+        console.log(`  Actual duration: ${actualDuration.toFixed(1)}s`)
+        console.log(`  Target duration: ${targetDuration}s`)
+        console.log(`  Speedup needed: ${speedupFactor.toFixed(2)}x`)
+        console.log(``)
+        console.log(`To fix video duration, run:`)
+        console.log(`  ffmpeg -i INPUT.webm -filter:v "setpts=PTS/${speedupFactor.toFixed(2)}" -an OUTPUT.webm`)
 
         // Cleanup
         this.isRecording = false
@@ -183,8 +201,9 @@ export class VideoRecorder {
         this.canvas = null
         this.ctx = null
         this.stream = null
+        this.startTime = null
 
-        resolve(blob)
+        resolve({ blob, speedupFactor, actualDuration, targetDuration })
       }
 
       this.mediaRecorder.stop()

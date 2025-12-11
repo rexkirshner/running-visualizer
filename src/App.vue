@@ -472,10 +472,12 @@ async function handleToggleRecording() {
   if (isRecording.value) {
     // Stop recording
     if (videoRecorder) {
-      const blob = await videoRecorder.stop()
-      if (blob) {
-        const filename = generateFilename('run-animation')
-        downloadBlob(blob, filename)
+      const result = await videoRecorder.stop()
+      if (result && result.blob) {
+        // Include speedup factor in filename for reference
+        const speedStr = result.speedupFactor.toFixed(1).replace('.', 'x')
+        const filename = generateFilename(`run-animation-speed${speedStr}`)
+        downloadBlob(result.blob, filename)
       }
       videoRecorder = null
     }
@@ -489,10 +491,10 @@ async function handleToggleRecording() {
     }
 
     videoRecorder = new VideoRecorder(mapElement, {
-      width: 1920,
-      height: 1080,
+      width: 1280,
+      height: 720,
       frameRate: 30,
-      transparent: mapType.value === 'none'
+      targetDuration: animationDuration.value
     })
 
     await videoRecorder.start()
