@@ -47,11 +47,46 @@
           @click="handleToggleRecording"
           class="record-btn"
           :class="{ recording: isRecording }"
+          :disabled="isRecording"
         >
           <span class="record-indicator"></span>
           {{ isRecording ? 'Stop Recording' : 'Record' }}
         </button>
         <span v-if="isRecording" class="recording-status">Recording...</span>
+      </div>
+
+      <!-- Export Settings -->
+      <div class="control-group export-settings">
+        <div class="export-settings-header">Export Settings</div>
+        <div class="export-row">
+          <div class="export-field">
+            <label for="export-resolution">Resolution:</label>
+            <select
+              id="export-resolution"
+              :value="exportResolution"
+              @change="handleResolutionChange"
+              :disabled="isRecording"
+            >
+              <option value="1280x720">720p (1280×720)</option>
+              <option value="1920x1080">1080p (1920×1080)</option>
+              <option value="2560x1440">1440p (2560×1440)</option>
+              <option value="3840x2160">4K (3840×2160)</option>
+            </select>
+          </div>
+          <div class="export-field">
+            <label for="export-framerate">Frame Rate:</label>
+            <select
+              id="export-framerate"
+              :value="exportFrameRate"
+              @change="handleFrameRateChange"
+              :disabled="isRecording"
+            >
+              <option value="24">24 fps</option>
+              <option value="30">30 fps</option>
+              <option value="60">60 fps</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       <!-- Runner Dot Settings -->
@@ -213,6 +248,16 @@ const props = defineProps({
   isRecording: {
     type: Boolean,
     default: false
+  },
+  /** Export resolution (e.g., '1920x1080') */
+  exportResolution: {
+    type: String,
+    default: '1920x1080'
+  },
+  /** Export frame rate */
+  exportFrameRate: {
+    type: Number,
+    default: 30
   }
 })
 
@@ -221,6 +266,8 @@ const emit = defineEmits([
   'update:duration',
   'update:showRunnerDots',
   'update:runnerDotSize',
+  'update:exportResolution',
+  'update:exportFrameRate',
   'play',
   'pause',
   'reset',
@@ -278,6 +325,14 @@ function handleRunnerDotSizeChange(event) {
 
 function handleToggleRecording() {
   emit('toggleRecording')
+}
+
+function handleResolutionChange(event) {
+  emit('update:exportResolution', event.target.value)
+}
+
+function handleFrameRateChange(event) {
+  emit('update:exportFrameRate', parseInt(event.target.value))
 }
 </script>
 
@@ -608,5 +663,56 @@ input[type="range"]:disabled {
   font-size: 13px;
   color: #dc2626;
   font-weight: 500;
+}
+
+/* Export Settings */
+.export-settings {
+  background: #f0f9ff;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid #bae6fd;
+}
+
+.export-settings-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0369a1;
+  margin-bottom: 10px;
+}
+
+.export-row {
+  display: flex;
+  gap: 12px;
+}
+
+.export-field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.export-field label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #555;
+}
+
+.export-field select {
+  padding: 6px 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 13px;
+  background: white;
+  cursor: pointer;
+}
+
+.export-field select:disabled {
+  background: #f5f5f5;
+  cursor: not-allowed;
+}
+
+.export-field select:hover:not(:disabled) {
+  border-color: #3388ff;
 }
 </style>

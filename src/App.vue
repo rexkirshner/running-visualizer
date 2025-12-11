@@ -65,10 +65,14 @@
       :show-runner-dots="showRunnerDots"
       :runner-dot-size="runnerDotSize"
       :is-recording="isRecording"
+      :export-resolution="exportResolution"
+      :export-frame-rate="exportFrameRate"
       @update:selected-run-id="handleRunSelect"
       @update:duration="handleDurationChange"
       @update:show-runner-dots="handleShowRunnerDotsChange"
       @update:runner-dot-size="handleRunnerDotSizeChange"
+      @update:export-resolution="handleExportResolutionChange"
+      @update:export-frame-rate="handleExportFrameRateChange"
       @play="handlePlay"
       @pause="handlePause"
       @reset="handleReset"
@@ -168,6 +172,10 @@ const runnerDotSize = ref(1)
 const isRecording = ref(false)
 let pngRecorder = null
 let recordingFrameCount = 0 // Frame counter for frame-based animation during recording
+
+// Export settings
+const exportResolution = ref('1920x1080')
+const exportFrameRate = ref(30)
 
 /**
  * Extract unique values from runs for filter dropdowns
@@ -463,6 +471,18 @@ function handleRunnerDotSizeChange(value) {
 }
 
 // ============================================
+// Export Settings Handlers
+// ============================================
+
+function handleExportResolutionChange(value) {
+  exportResolution.value = value
+}
+
+function handleExportFrameRateChange(value) {
+  exportFrameRate.value = value
+}
+
+// ============================================
 // Recording Handlers
 // ============================================
 
@@ -497,10 +517,13 @@ async function handleToggleRecording() {
       return
     }
 
+    // Parse resolution (e.g., '1920x1080' -> width: 1920, height: 1080)
+    const [width, height] = exportResolution.value.split('x').map(Number)
+
     pngRecorder = new PNGSequenceRecorder(mapElement, {
-      width: 1920,  // Higher resolution for PNG sequence
-      height: 1080,
-      frameRate: 30,
+      width,
+      height,
+      frameRate: exportFrameRate.value,
       targetDuration: animationDuration.value
     })
 
@@ -683,7 +706,7 @@ async function animateAllRuns() {
   let progress
   if (isRecording.value) {
     // Frame-based progress when recording (ensures consistent frame capture)
-    const totalFrames = animationDuration.value * 30 // 30fps target
+    const totalFrames = animationDuration.value * exportFrameRate.value
     progress = Math.min((recordingFrameCount / totalFrames) * 100, 100)
     recordingFrameCount++
   } else {
@@ -775,7 +798,7 @@ async function animateRun() {
   let progress
   if (isRecording.value) {
     // Frame-based progress when recording (ensures consistent frame capture)
-    const totalFrames = animationDuration.value * 30 // 30fps target
+    const totalFrames = animationDuration.value * exportFrameRate.value
     progress = Math.min((recordingFrameCount / totalFrames) * 100, 100)
     recordingFrameCount++
   } else {
