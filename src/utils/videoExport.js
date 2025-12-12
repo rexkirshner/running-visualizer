@@ -401,55 +401,110 @@ export class PNGSequenceRecorder {
     }
 
     try {
-      // Find the actual export frame overlay element and use its real position
+      // Get the export frame position from the overlay element
       const exportFrameOverlay = document.querySelector('.export-frame-overlay')
 
-      let frameRect
+      let frameLeft, frameTop, frameWidth, frameHeight
       if (exportFrameOverlay) {
-        // Use the actual overlay position - most reliable
-        frameRect = exportFrameOverlay.getBoundingClientRect()
+        const rect = exportFrameOverlay.getBoundingClientRect()
+        frameLeft = rect.left
+        frameTop = rect.top
+        frameWidth = rect.width
+        frameHeight = rect.height
       } else {
-        // Fallback: calculate frame dimensions (matches CSS in App.vue)
+        // Fallback calculation
         const aspectRatio = this.options.width / this.options.height
         const vw90 = window.innerWidth * 0.9
         const vh90_minus_100 = window.innerHeight * 0.9 - 100
-        const frameWidth = Math.min(vw90, vh90_minus_100 * aspectRatio)
-        const frameHeight = frameWidth / aspectRatio
-        frameRect = {
-          left: (window.innerWidth - frameWidth) / 2,
-          top: (window.innerHeight - frameHeight) / 2,
-          width: frameWidth,
-          height: frameHeight
-        }
+        frameWidth = Math.min(vw90, vh90_minus_100 * aspectRatio)
+        frameHeight = frameWidth / aspectRatio
+        frameLeft = (window.innerWidth - frameWidth) / 2
+        frameTop = (window.innerHeight - frameHeight) / 2
       }
 
-      // Capture ONLY the export frame region directly using document.body
-      // with x, y, width, height to specify exact viewport coordinates
-      const capturedCanvas = await html2canvas(document.body, {
-        backgroundColor: null, // Transparent background
+      // Get the map element position
+      const mapRect = this.element.getBoundingClientRect()
+
+      // Log coordinates for debugging (first frame only)
+      if (this.frameCount === 0) {
+        console.log('Export frame:', { frameLeft, frameTop, frameWidth, frameHeight })
+        console.log('Map element:', { left: mapRect.left, top: mapRect.top, width: mapRect.width, height: mapRect.height })
+        console.log('Window size:', { width: window.innerWidth, height: window.innerHeight })
+      }
+
+      // Find all Leaflet panes that use CSS transforms and temporarily convert to left/top
+      const panes = this.element.querySelectorAll('.leaflet-pane')
+      const originalStyles = []
+
+      panes.forEach(pane => {
+        const style = window.getComputedStyle(pane)
+        const transform = style.transform
+
+        if (transform && transform !== 'none') {
+          // Parse matrix(a, b, c, d, tx, ty) to get translation values
+          const match = transform.match(/matrix\([^,]+,[^,]+,[^,]+,[^,]+,\s*([^,]+),\s*([^)]+)\)/)
+          if (match) {
+            const tx = parseFloat(match[1])
+            const ty = parseFloat(match[2])
+
+            // Save original style
+            originalStyles.push({
+              element: pane,
+              transform: pane.style.transform,
+              left: pane.style.left,
+              top: pane.style.top
+            })
+
+            // Convert transform to left/top positioning (html2canvas handles this better)
+            pane.style.transform = 'none'
+            pane.style.left = `${tx}px`
+            pane.style.top = `${ty}px`
+          }
+        }
+      })
+
+      // Calculate crop coordinates: export frame position relative to map element
+      const cropX = frameLeft - mapRect.left
+      const cropY = frameTop - mapRect.top
+
+      if (this.frameCount === 0) {
+        console.log('Crop coordinates:', { cropX, cropY, frameWidth, frameHeight })
+        console.log('Panes modified:', originalStyles.length)
+      }
+
+      // Capture the map element - now with transforms converted to left/top
+      const capturedCanvas = await html2canvas(this.element, {
+        backgroundColor: null,
         logging: false,
         useCORS: true,
         allowTaint: true,
         scale: 1,
-        x: frameRect.left,
-        y: frameRect.top,
-        width: frameRect.width,
-        height: frameRect.height,
-        windowWidth: window.innerWidth,
-        windowHeight: window.innerHeight,
+        width: frameWidth,
+        height: frameHeight,
+        scrollX: -cropX,
+        scrollY: -cropY,
+        windowWidth: mapRect.width,
+        windowHeight: mapRect.height,
         ignoreElements: (element) => {
-          // Ignore UI elements we don't want in the export
           if (!element.classList) return false
           return (
             element.classList.contains('leaflet-control-container') ||
-            element.classList.contains('export-frame-overlay') ||
-            element.classList.contains('animation-controls') ||
-            element.classList.contains('filter-panel') ||
-            element.classList.contains('map-type-selector') ||
-            element.classList.contains('route-color-selector')
+            element.classList.contains('export-frame-overlay')
           )
         }
       })
+
+      // Restore original transforms
+      originalStyles.forEach(({ element, transform, left, top }) => {
+        element.style.transform = transform
+        element.style.left = left
+        element.style.top = top
+      })
+
+      // Log canvas size for debugging (first frame only)
+      if (this.frameCount === 0) {
+        console.log('Captured canvas size:', { width: capturedCanvas.width, height: capturedCanvas.height })
+      }
 
       // Create output canvas at target resolution
       const outputCanvas = document.createElement('canvas')
