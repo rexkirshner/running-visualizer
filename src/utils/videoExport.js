@@ -401,27 +401,32 @@ export class PNGSequenceRecorder {
     }
 
     try {
-      // Calculate export frame dimensions (matches CSS in App.vue exactly)
-      // CSS: width = min(90vw, (90vh - 100px) * aspect)
-      //      height = width / aspect
-      const aspectRatio = this.options.width / this.options.height
-      const vw90 = window.innerWidth * 0.9  // 90vw
-      const vh90_minus_100 = window.innerHeight * 0.9 - 100  // 90vh - 100px
+      // Find the actual export frame overlay element and use its real position
+      const exportFrameOverlay = document.querySelector('.export-frame-overlay')
 
-      const widthOption1 = vw90
-      const widthOption2 = vh90_minus_100 * aspectRatio
+      let frameRect
+      if (exportFrameOverlay) {
+        // Use the actual overlay position - most reliable
+        frameRect = exportFrameOverlay.getBoundingClientRect()
+      } else {
+        // Fallback: calculate frame dimensions (matches CSS in App.vue)
+        const aspectRatio = this.options.width / this.options.height
+        const vw90 = window.innerWidth * 0.9
+        const vh90_minus_100 = window.innerHeight * 0.9 - 100
+        const frameWidth = Math.min(vw90, vh90_minus_100 * aspectRatio)
+        const frameHeight = frameWidth / aspectRatio
+        frameRect = {
+          left: (window.innerWidth - frameWidth) / 2,
+          top: (window.innerHeight - frameHeight) / 2,
+          width: frameWidth,
+          height: frameHeight
+        }
+      }
 
-      const frameWidth = Math.min(widthOption1, widthOption2)
-      const frameHeight = frameWidth / aspectRatio
+      // Get map element position
+      const mapRect = this.element.getBoundingClientRect()
 
-      // Frame is centered in viewport
-      const frameLeft = (window.innerWidth - frameWidth) / 2
-      const frameTop = (window.innerHeight - frameHeight) / 2
-
-      // Get element position
-      const rect = this.element.getBoundingClientRect()
-
-      // Capture the full element first
+      // Capture the full map element first
       const fullCanvas = await html2canvas(this.element, {
         backgroundColor: null, // Transparent background
         logging: false,
@@ -437,21 +442,27 @@ export class PNGSequenceRecorder {
         }
       })
 
-      // Calculate crop coordinates (frame position relative to element)
-      const cropX = frameLeft - rect.left
-      const cropY = frameTop - rect.top
+      // Calculate scale factor between html2canvas output and actual element size
+      const scaleX = fullCanvas.width / mapRect.width
+      const scaleY = fullCanvas.height / mapRect.height
+
+      // Calculate crop coordinates (frame position relative to element, scaled)
+      const cropX = (frameRect.left - mapRect.left) * scaleX
+      const cropY = (frameRect.top - mapRect.top) * scaleY
+      const cropWidth = frameRect.width * scaleX
+      const cropHeight = frameRect.height * scaleY
 
       // Create a cropped canvas with just the export frame area
       const capturedCanvas = document.createElement('canvas')
-      capturedCanvas.width = frameWidth
-      capturedCanvas.height = frameHeight
+      capturedCanvas.width = cropWidth
+      capturedCanvas.height = cropHeight
       const cropCtx = capturedCanvas.getContext('2d')
 
       // Draw the cropped region from the full capture
       cropCtx.drawImage(
         fullCanvas,
-        cropX, cropY, frameWidth, frameHeight,  // Source rectangle
-        0, 0, frameWidth, frameHeight            // Destination rectangle
+        cropX, cropY, cropWidth, cropHeight,  // Source rectangle
+        0, 0, cropWidth, cropHeight            // Destination rectangle
       )
 
       // Create output canvas at target resolution
