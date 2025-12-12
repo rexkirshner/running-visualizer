@@ -32,9 +32,9 @@
         <input
           id="duration-slider"
           type="range"
-          min="5"
+          min="1"
           max="60"
-          step="5"
+          step="1"
           :value="duration"
           @input="handleDurationChange"
           :disabled="isAnimating"
