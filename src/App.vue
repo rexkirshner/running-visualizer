@@ -493,22 +493,12 @@ function handleExportFrameRateChange(value) {
  */
 async function handleToggleRecording() {
   if (isRecording.value) {
-    // Stop recording
+    // Request stop - set flag that animation loop will check
     if (pngRecorder) {
-      console.log('Stopping recording...')
-      const result = await pngRecorder.stop()
-      console.log('Recording stopped, result:', result)
-      if (result && result.blob) {
-        // Download ZIP file containing PNG frames
-        const filename = generateFilename('run-animation-frames', 'zip')
-        console.log('Downloading:', filename)
-        downloadBlob(result.blob, filename)
-      } else {
-        console.error('No result or blob from recording')
-      }
-      pngRecorder = null
+      console.log('Requesting recording stop...')
+      pngRecorder.requestStop()
+      // The actual stop will happen in the animation loop when it checks the flag
     }
-    isRecording.value = false
   } else {
     // Start recording
     const mapElement = mapContainer.value
@@ -531,6 +521,29 @@ async function handleToggleRecording() {
     recordingFrameCount = 0 // Reset frame counter
     isRecording.value = true
   }
+}
+
+/**
+ * Finalize recording - stop recorder and download ZIP
+ * Called from animation loop when stop is requested or animation completes
+ */
+async function finalizeRecording() {
+  if (!pngRecorder) return
+
+  console.log('Finalizing recording...')
+  const result = await pngRecorder.stop()
+  console.log('Recording stopped, result:', result)
+
+  if (result && result.blob) {
+    const filename = generateFilename('run-animation-frames', 'zip')
+    console.log('Downloading:', filename)
+    downloadBlob(result.blob, filename)
+  } else {
+    console.error('No result or blob from recording')
+  }
+
+  pngRecorder = null
+  isRecording.value = false
 }
 
 // ============================================
@@ -703,6 +716,18 @@ function handleResetAll() {
 async function animateAllRuns() {
   if (!isAnimatingAll.value) return
 
+  // Check if stop was requested during recording
+  if (pngRecorder && pngRecorder.stopRequested) {
+    console.log('Stop requested - finalizing recording...')
+    isAnimatingAll.value = false
+    animationFrameIdAll = null
+    // Clean up runner dots
+    removeAllRunnerDots(map, runnerDotsAll)
+    runnerDotsAll = []
+    await finalizeRecording()
+    return
+  }
+
   let progress
   if (isRecording.value) {
     // Frame-based progress when recording (ensures consistent frame capture)
@@ -784,6 +809,11 @@ async function animateAllRuns() {
     runnerDotsAll = []
     isAnimatingAll.value = false
     animationFrameIdAll = null
+
+    // Finalize recording if active
+    if (isRecording.value && pngRecorder) {
+      await finalizeRecording()
+    }
   }
 }
 
@@ -794,6 +824,15 @@ async function animateAllRuns() {
  */
 async function animateRun() {
   if (!isAnimating.value) return
+
+  // Check if stop was requested during recording
+  if (pngRecorder && pngRecorder.stopRequested) {
+    console.log('Stop requested - finalizing recording...')
+    isAnimating.value = false
+    animationFrameId = null
+    await finalizeRecording()
+    return
+  }
 
   let progress
   if (isRecording.value) {
@@ -884,6 +923,11 @@ async function animateRun() {
     // Animation complete
     isAnimating.value = false
     animationFrameId = null
+
+    // Finalize recording if active
+    if (isRecording.value && pngRecorder) {
+      await finalizeRecording()
+    }
   }
 }
 

@@ -349,6 +349,16 @@ export class PNGSequenceRecorder {
     this.isRecording = false
     this.frameCount = 0
     this.startTime = null
+    this.stopRequested = false
+  }
+
+  /**
+   * Request recording to stop
+   * This sets a flag that can be checked in the animation loop
+   * to stop recording even while a frame is being captured
+   */
+  requestStop() {
+    this.stopRequested = true
   }
 
   /**
@@ -364,6 +374,7 @@ export class PNGSequenceRecorder {
     this.frames = []
     this.frameCount = 0
     this.isRecording = true
+    this.stopRequested = false
     this.startTime = performance.now()
 
     // Add CSS class to hide UI elements during recording
