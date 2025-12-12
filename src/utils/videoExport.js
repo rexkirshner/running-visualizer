@@ -401,15 +401,26 @@ export class PNGSequenceRecorder {
     }
 
     try {
-      // Capture with transparent background
+      // Get the visible bounds of the element within the viewport
+      const rect = this.element.getBoundingClientRect()
+
+      // Calculate the visible portion (clipped to viewport)
+      const visibleWidth = Math.min(rect.width, window.innerWidth - Math.max(0, rect.left))
+      const visibleHeight = Math.min(rect.height, window.innerHeight - Math.max(0, rect.top))
+
+      // Capture with transparent background - only the visible portion
       const capturedCanvas = await html2canvas(this.element, {
         backgroundColor: null, // Transparent background
         logging: false,
         useCORS: true,
         allowTaint: true,
         scale: 1,
-        width: this.element.offsetWidth,
-        height: this.element.offsetHeight,
+        width: visibleWidth,
+        height: visibleHeight,
+        windowWidth: visibleWidth,
+        windowHeight: visibleHeight,
+        x: 0,
+        y: 0,
         ignoreElements: (element) => {
           // Ignore Leaflet controls
           return element.classList && element.classList.contains('leaflet-control-container')
