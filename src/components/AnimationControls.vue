@@ -86,6 +86,15 @@
             </select>
           </div>
         </div>
+        <div class="checkbox-row show-frame-row">
+          <input
+            id="show-export-frame"
+            type="checkbox"
+            :checked="showExportFrame"
+            @change="handleShowExportFrameChange"
+          />
+          <label for="show-export-frame">Show export frame</label>
+        </div>
       </div>
 
       <!-- Runner Dot Settings -->
@@ -257,6 +266,11 @@ const props = defineProps({
   exportFrameRate: {
     type: Number,
     default: 30
+  },
+  /** Whether to show export frame overlay */
+  showExportFrame: {
+    type: Boolean,
+    default: true
   }
 })
 
@@ -267,6 +281,7 @@ const emit = defineEmits([
   'update:runnerDotSize',
   'update:exportResolution',
   'update:exportFrameRate',
+  'update:showExportFrame',
   'play',
   'pause',
   'reset',
@@ -332,6 +347,10 @@ function handleResolutionChange(event) {
 
 function handleFrameRateChange(event) {
   emit('update:exportFrameRate', parseInt(event.target.value))
+}
+
+function handleShowExportFrameChange(event) {
+  emit('update:showExportFrame', event.target.checked)
 }
 </script>
 
@@ -713,5 +732,20 @@ input[type="range"]:disabled {
 
 .export-field select:hover:not(:disabled) {
   border-color: #3388ff;
+}
+
+.show-frame-row {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #e0f2fe;
+}
+
+.show-frame-row input[type="checkbox"] {
+  accent-color: #0369a1;
+}
+
+.show-frame-row label {
+  font-size: 13px;
+  color: #0369a1;
 }
 </style>

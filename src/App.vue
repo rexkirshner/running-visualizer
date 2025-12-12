@@ -10,6 +10,15 @@
     <template v-else>
       <div id="map" ref="mapContainer" :class="{ 'transparent-bg': mapType === 'none' }"></div>
 
+      <!-- Export Frame Overlay -->
+      <div
+        v-if="showExportFrame && !isRecording"
+        class="export-frame-overlay"
+        :style="exportFrameStyle"
+      >
+        <div class="export-frame-label">{{ exportResolution }}</div>
+      </div>
+
       <!-- Map Type Selector (top-center) -->
       <MapTypeSelector
       v-if="!loading"
@@ -67,8 +76,10 @@
       :is-recording="isRecording"
       :export-resolution="exportResolution"
       :export-frame-rate="exportFrameRate"
+      :show-export-frame="showExportFrame"
       @update:selected-run-id="handleRunSelect"
       @update:duration="handleDurationChange"
+      @update:show-export-frame="handleShowExportFrameChange"
       @update:show-runner-dots="handleShowRunnerDotsChange"
       @update:runner-dot-size="handleRunnerDotSizeChange"
       @update:export-resolution="handleExportResolutionChange"
@@ -176,6 +187,7 @@ let recordingFrameCount = 0 // Frame counter for frame-based animation during re
 // Export settings
 const exportResolution = ref('1920x1080')
 const exportFrameRate = ref(30)
+const showExportFrame = ref(true) // Show export frame overlay by default
 
 /**
  * Extract unique values from runs for filter dropdowns
@@ -201,6 +213,21 @@ function parseActivityDate(dateStr) {
   // Format: "Mar 24, 2017, 5:42:11 PM"
   return new Date(dateStr)
 }
+
+/**
+ * Compute export frame overlay style
+ * Centers a frame with the export aspect ratio on the visible map area
+ */
+const exportFrameStyle = computed(() => {
+  const [width, height] = exportResolution.value.split('x').map(Number)
+  const aspectRatio = width / height
+
+  // Get the map container dimensions (will be calculated at render time)
+  // We'll use CSS to handle the actual sizing
+  return {
+    '--aspect-ratio': aspectRatio
+  }
+})
 
 /**
  * Filter runs by date range AND location
@@ -480,6 +507,10 @@ function handleExportResolutionChange(value) {
 
 function handleExportFrameRateChange(value) {
   exportFrameRate.value = value
+}
+
+function handleShowExportFrameChange(value) {
+  showExportFrame.value = value
 }
 
 // ============================================
@@ -1034,5 +1065,38 @@ onUnmounted(() => {
   font-size: 14px;
   color: #333;
   z-index: 1000;
+}
+
+/* Export Frame Overlay */
+.export-frame-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border: 3px dashed #ff6b6b;
+  background: transparent;
+  pointer-events: none;
+  z-index: 999;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.15);
+
+  /* Calculate dimensions based on aspect ratio and viewport */
+  --aspect-ratio: 1.778; /* Default 16:9, overridden by style binding */
+  width: calc(min(90vw, (90vh - 100px) * var(--aspect-ratio)));
+  height: calc(min(90vw, (90vh - 100px) * var(--aspect-ratio)) / var(--aspect-ratio));
+}
+
+.export-frame-label {
+  position: absolute;
+  top: -28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #ff6b6b;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: system-ui, -apple-system, sans-serif;
+  white-space: nowrap;
 }
 </style>
