@@ -281,7 +281,11 @@ async function handleSetupLoad(filters) {
   await nextTick()
 
   // Initialize Leaflet map centered on Southern California
-  map = L.map(mapContainer.value).setView([34.0, -118.4], 11)
+  map = L.map(mapContainer.value, {
+    zoomSnap: 0.1,      // Allow fractional zoom levels
+    zoomDelta: 0.5,     // Smaller zoom steps when using +/- buttons
+    wheelPxPerZoomLevel: 120  // Smoother scroll wheel zooming
+  }).setView([34.0, -118.4], 11)
 
   // Add initial tile layer based on mapType default
   const initialTileConfig = tileLayers[mapType.value]
