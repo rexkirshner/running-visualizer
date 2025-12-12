@@ -378,3 +378,68 @@ Quick navigation to specific work.
 **Blockers:** None - feature complete, needs user testing
 
 ---
+
+## Session 8 - 2025-12-12
+
+**Duration:** ~2h | **Focus:** Fix PNG export to match export frame overlay | **Status:** ⏳
+
+### TL;DR
+- Fixed unresponsive stop button during 4K recording (requestStop flag)
+- Added export frame overlay to preview capture boundaries
+- Enabled smooth map zooming (fractional zoom levels)
+- Fixed map view changing during recording (disabled fitBounds while recording)
+- Extensive debugging of html2canvas + Leaflet CSS transform issue
+- Final fix: Convert Leaflet pane transforms to left/top before capture
+
+### Problem Solved
+**Issue:** PNG export wasn't capturing the correct region - routes appeared in top-left of output instead of matching the centered export frame overlay
+**Constraints:** html2canvas doesn't properly handle CSS transforms that Leaflet uses for positioning map panes (translate3d)
+**Approach:** Multiple iterations - tried cropping, scroll offsets, SVG transform compensation. Final solution: temporarily convert CSS transforms to left/top positioning before capture, restore after
+**Why this approach:** html2canvas handles left/top positioning correctly but not transform:translate. By converting transforms dynamically, we work around the library limitation without modifying Leaflet's behavior
+
+### Decisions
+- **Transform workaround:** Convert Leaflet pane CSS transforms to left/top during capture - See DECISIONS.md D002 context
+- **Export frame overlay:** Added red dashed border with darkened surround to preview capture region
+
+### Files
+**MOD:** `src/utils/videoExport.js:398-502` - Major rewrite of captureFrame():
+  - Added requestStop() method for responsive stop button
+  - Added export frame overlay detection
+  - Convert Leaflet pane transforms to left/top before capture
+  - Restore transforms after capture
+  - Debug logging for coordinates and transforms
+**MOD:** `src/App.vue` - Added export frame overlay div, showExportFrame state, disabled fitBounds during recording
+**MOD:** `src/components/AnimationControls.vue` - Added "Show export frame" checkbox, duration slider min=1
+**MOD:** `src/components/SetupPage.vue` - Added "2025 Home - MDR" preset button
+
+### Mental Models
+**Current understanding:** Leaflet uses CSS transform:translate3d() to position its map panes (tiles, overlays, markers). html2canvas renders DOM elements but doesn't correctly interpret CSS transforms, causing content to appear at wrong positions. The workaround converts transform values to equivalent left/top positioning which html2canvas handles correctly.
+**Key insights:** The SVG transform matrix values (tx, ty) from Leaflet are the exact offset needed. Parse matrix(a,b,c,d,tx,ty) to extract translation.
+**Gotchas discovered:** scrollX/scrollY options in html2canvas don't work as expected with transformed elements. Must modify DOM temporarily.
+
+### Work In Progress
+**Task:** Export capture still may need fine-tuning
+**Location:** `src/utils/videoExport.js:435-502` in `captureFrame()`
+**Current approach:** Converting all .leaflet-pane transforms to left/top before html2canvas capture
+**Why this approach:** html2canvas handles left/top correctly, not transforms
+**Next specific action:** User to test export and verify it matches the export frame overlay
+**Context needed:** The transform conversion approach should work but hasn't been fully tested by user yet
+
+### TodoWrite State
+**Completed:**
+- ✅ Fix unresponsive stop button during 4K recording
+- ✅ Add export frame overlay preview
+- ✅ Enable smooth map zooming
+- ✅ Add 2025 Home - MDR preset
+- ✅ Change duration slider min to 1s
+- ✅ Disable fitBounds during recording
+- ✅ Debug and fix export frame alignment
+
+**In Progress:**
+- ⏳ Verify export matches frame overlay (user testing)
+
+### Next Session
+**Priority:** Verify export works correctly with the transform conversion fix
+**Blockers:** None - solution implemented, awaiting user verification
+
+---

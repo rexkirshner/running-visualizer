@@ -1,6 +1,6 @@
 # Project Status
 
-**Last Updated:** 2025-12-11
+**Last Updated:** 2025-12-12
 **Status:** 🟢 Active
 
 ---
@@ -24,9 +24,9 @@ npm run dev         # Development server (port 3300)
 npm run build       # Production build
 ```
 
-**Current Focus:** PNG sequence export for Final Cut Pro with transparency support
+**Current Focus:** Fix export capture to match export frame overlay
 
-**Last Session:** [Session 7 - 2025-12-11](./SESSIONS.md#session-7---2025-12-11)
+**Last Session:** [Session 8 - 2025-12-12](./SESSIONS.md#session-8---2025-12-12)
 
 **Documentation Health:** 🟢 Excellent
 - Last validated: 0 days ago
@@ -41,12 +41,12 @@ npm run build       # Production build
 **Started:** 2025-12-11
 **Target:** N/A (iterative development)
 
-**Focus:** PNG sequence export for Final Cut Pro with transparency support
+**Focus:** Fix export capture to match export frame overlay (Leaflet CSS transform workaround)
 
 ## Active Tasks
 
 **In Progress:**
-- ⏳ Test PNG export with transparency
+- ⏳ Verify export matches frame overlay (user testing needed)
 
 **Completed This Phase:**
 - ✅ Video recording with html2canvas + MediaRecorder
@@ -55,11 +55,18 @@ npm run build       # Production build
 - ✅ Configurable export settings (720p-4K, 24/30/60fps)
 - ✅ Changed defaults: single color, no background, 1px runner dots
 - ✅ Runner dot slider min changed to 1px
+- ✅ Export frame overlay preview (red dashed border)
+- ✅ Smooth map zooming (fractional zoom levels)
+- ✅ Fix unresponsive stop button during 4K recording
+- ✅ Disable fitBounds during recording (view stays stable)
+- ✅ Quick preset: 2025 Home - MDR filter
+- ✅ Duration slider min=1s for testing
+- ✅ Leaflet transform workaround for html2canvas
 
 **Next Up:**
-- Verify PNG export transparency works correctly
+- Verify export capture matches frame overlay
 - User testing of export workflow
-- Potential: Add export progress indicator
+- Fine-tune if alignment still off
 
 ## Blockers & Decisions
 
@@ -70,6 +77,7 @@ npm run build       # Production build
 - **PNG over video:** H.264/MP4 doesn't support transparency; PNG sequences provide lossless quality with full alpha
 - **ffmpeg loading:** Used toBlobURL from @ffmpeg/util with esm.sh CDN to avoid CORS/import issues
 - **JSZip packaging:** Bundles numbered PNGs into single downloadable archive for easy FCP import
+- **Transform workaround:** html2canvas doesn't handle CSS transforms correctly; convert Leaflet pane transforms to left/top before capture, restore after
 
 **Pending Decisions:**
 - None
@@ -77,16 +85,31 @@ npm run build       # Production build
 ## Work In Progress
 
 **Current Files:**
-- `src/utils/videoExport.js` - PNGSequenceRecorder class with transparency support
-- `src/components/AnimationControls.vue` - Export settings UI
+- `src/utils/videoExport.js:398-502` - captureFrame() with Leaflet transform workaround
+- `src/App.vue` - Export frame overlay, recording state
+- `src/components/AnimationControls.vue` - Export settings UI with frame checkbox
 
 **Mental Model:**
-Export captures animation frames via html2canvas with backgroundColor: null for transparency. Frames stored as PNG blobs, then bundled into ZIP via JSZip. Frame-based progress during recording (not time-based) ensures consistent capture. Resolution/framerate configurable pre-recording.
+Leaflet uses CSS transform:translate3d() to position map panes. html2canvas doesn't correctly interpret these transforms, causing content to render at wrong positions. The workaround:
+1. Before capture: Find all .leaflet-pane elements with transforms
+2. Parse matrix(a,b,c,d,tx,ty) to extract translation values
+3. Convert transform to left/top positioning
+4. Capture with html2canvas using scrollX/scrollY for export frame region
+5. Restore original transforms immediately after
 
 **Next Specific Action:**
-User needs to test PNG export and verify transparency in Final Cut Pro
+User to test export and verify it matches the export frame overlay
 
 ## Recent Accomplishments
+
+**Session 8 (2025-12-12):**
+- ✅ Fixed unresponsive stop button during 4K recording (requestStop flag)
+- ✅ Added export frame overlay to preview capture boundaries
+- ✅ Enabled smooth map zooming (fractional zoom levels)
+- ✅ Added quick preset for 2025 Home - MDR filter
+- ✅ Fixed map view changing during recording (disabled fitBounds)
+- ✅ Extensive debugging of html2canvas + Leaflet transform issue
+- ✅ Implemented Leaflet transform to left/top conversion workaround
 
 **Session 7 (2025-12-11):**
 - ✅ Built VideoRecorder class with WebM capture
@@ -98,25 +121,26 @@ User needs to test PNG export and verify transparency in Final Cut Pro
 - ✅ Fixed record button disabled bug
 
 **Key Files Modified/Created:**
-- `src/utils/videoExport.js` - VideoRecorder, PNGSequenceRecorder, ffmpeg integration
-- `src/App.vue` - Recording state, export handlers, new defaults
-- `src/components/AnimationControls.vue` - Record button, export settings
-- `src/components/SetupPage.vue` - FFmpeg preloading
+- `src/utils/videoExport.js` - VideoRecorder, PNGSequenceRecorder, ffmpeg integration, transform workaround
+- `src/App.vue` - Recording state, export handlers, export frame overlay
+- `src/components/AnimationControls.vue` - Record button, export settings, frame checkbox
+- `src/components/SetupPage.vue` - FFmpeg preloading, preset button
 - `package.json` - Added @ffmpeg/ffmpeg, @ffmpeg/util, jszip
 
 ## Next Session
 
-**Priority 1:** Verify PNG export produces transparent backgrounds
-**Priority 2:** Test FCP import workflow
-**Priority 3:** Add progress indicator during export if needed
+**Priority 1:** Test export with transform workaround - verify it matches frame overlay
+**Priority 2:** Fine-tune alignment if still off
+**Priority 3:** Test FCP import workflow with exported PNGs
 
 **Context Notes:**
 - Dev server running on port 3300
-- 22 commits ahead of origin/main (not pushed per user guidelines)
+- Multiple commits ahead of origin/main (not pushed per user guidelines)
 - Export settings: 720p/1080p/1440p/4K at 24/30/60fps
 - PNG export downloads as ZIP containing numbered frames folder
+- Leaflet transform workaround: converts CSS transforms to left/top before html2canvas capture
 
 ---
 
-**Last Updated:** 2025-12-11
-**Session:** Session 7
+**Last Updated:** 2025-12-12
+**Session:** Session 8
