@@ -401,42 +401,33 @@ export class PNGSequenceRecorder {
     }
 
     try {
-      // Calculate export frame dimensions (matches CSS in App.vue)
+      // Calculate export frame dimensions (matches CSS in App.vue exactly)
+      // CSS: width = min(90vw, (90vh - 100px) * aspect)
+      //      height = width / aspect
       const aspectRatio = this.options.width / this.options.height
-      const maxWidth = window.innerWidth * 0.9
-      const maxHeight = (window.innerHeight - 100) * 0.9
+      const vw90 = window.innerWidth * 0.9  // 90vw
+      const vh90_minus_100 = window.innerHeight * 0.9 - 100  // 90vh - 100px
 
-      let frameWidth, frameHeight
-      if (maxWidth / aspectRatio <= maxHeight) {
-        frameWidth = maxWidth
-        frameHeight = maxWidth / aspectRatio
-      } else {
-        frameHeight = maxHeight
-        frameWidth = maxHeight * aspectRatio
-      }
+      const widthOption1 = vw90
+      const widthOption2 = vh90_minus_100 * aspectRatio
+
+      const frameWidth = Math.min(widthOption1, widthOption2)
+      const frameHeight = frameWidth / aspectRatio
 
       // Frame is centered in viewport
       const frameLeft = (window.innerWidth - frameWidth) / 2
       const frameTop = (window.innerHeight - frameHeight) / 2
 
-      // Get element position to calculate offset
+      // Get element position
       const rect = this.element.getBoundingClientRect()
 
-      // Calculate the offset from element origin to frame origin
-      const offsetX = frameLeft - rect.left
-      const offsetY = frameTop - rect.top
-
-      // Capture with transparent background - only the export frame area
-      const capturedCanvas = await html2canvas(this.element, {
+      // Capture the full element first
+      const fullCanvas = await html2canvas(this.element, {
         backgroundColor: null, // Transparent background
         logging: false,
         useCORS: true,
         allowTaint: true,
         scale: 1,
-        width: frameWidth,
-        height: frameHeight,
-        x: offsetX,
-        y: offsetY,
         ignoreElements: (element) => {
           // Ignore Leaflet controls and export frame overlay
           return element.classList && (
@@ -445,6 +436,23 @@ export class PNGSequenceRecorder {
           )
         }
       })
+
+      // Calculate crop coordinates (frame position relative to element)
+      const cropX = frameLeft - rect.left
+      const cropY = frameTop - rect.top
+
+      // Create a cropped canvas with just the export frame area
+      const capturedCanvas = document.createElement('canvas')
+      capturedCanvas.width = frameWidth
+      capturedCanvas.height = frameHeight
+      const cropCtx = capturedCanvas.getContext('2d')
+
+      // Draw the cropped region from the full capture
+      cropCtx.drawImage(
+        fullCanvas,
+        cropX, cropY, frameWidth, frameHeight,  // Source rectangle
+        0, 0, frameWidth, frameHeight            // Destination rectangle
+      )
 
       // Create output canvas at target resolution
       const outputCanvas = document.createElement('canvas')
