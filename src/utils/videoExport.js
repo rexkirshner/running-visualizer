@@ -425,13 +425,15 @@ export class PNGSequenceRecorder {
       // Keep transparent (don't fill background)
       ctx.clearRect(0, 0, outputCanvas.width, outputCanvas.height)
 
-      // Calculate scaling to fit captured content in output dimensions
+      // Calculate scaling to FILL output dimensions (cover mode, may crop edges)
+      // This ensures routes are centered and frame is fully utilized
       const scaleX = outputCanvas.width / capturedCanvas.width
       const scaleY = outputCanvas.height / capturedCanvas.height
-      const scale = Math.min(scaleX, scaleY)
+      const scale = Math.max(scaleX, scaleY) // Use max for cover mode (fill frame)
 
       const destWidth = capturedCanvas.width * scale
       const destHeight = capturedCanvas.height * scale
+      // Center the scaled content (negative offsets will crop edges)
       const destX = (outputCanvas.width - destWidth) / 2
       const destY = (outputCanvas.height - destHeight) / 2
 
