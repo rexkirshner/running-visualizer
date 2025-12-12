@@ -436,9 +436,19 @@ export class PNGSequenceRecorder {
       // Keep transparent (don't fill background)
       ctx.clearRect(0, 0, outputCanvas.width, outputCanvas.height)
 
-      // Stretch captured content to fill entire output canvas
-      // This ensures all routes are visible and fill the frame
-      ctx.drawImage(capturedCanvas, 0, 0, outputCanvas.width, outputCanvas.height)
+      // Scale to fit while preserving aspect ratio (contain mode)
+      // This ensures all routes are visible without distortion
+      const scaleX = outputCanvas.width / capturedCanvas.width
+      const scaleY = outputCanvas.height / capturedCanvas.height
+      const scale = Math.min(scaleX, scaleY) // Use min to fit all content
+
+      const destWidth = capturedCanvas.width * scale
+      const destHeight = capturedCanvas.height * scale
+      // Center the content in the output canvas
+      const destX = (outputCanvas.width - destWidth) / 2
+      const destY = (outputCanvas.height - destHeight) / 2
+
+      ctx.drawImage(capturedCanvas, destX, destY, destWidth, destHeight)
 
       // Convert to PNG blob
       const blob = await new Promise(resolve => outputCanvas.toBlob(resolve, 'image/png'))
