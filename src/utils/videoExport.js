@@ -401,29 +401,48 @@ export class PNGSequenceRecorder {
     }
 
     try {
-      // Get the visible bounds of the element within the viewport
+      // Calculate export frame dimensions (matches CSS in App.vue)
+      const aspectRatio = this.options.width / this.options.height
+      const maxWidth = window.innerWidth * 0.9
+      const maxHeight = (window.innerHeight - 100) * 0.9
+
+      let frameWidth, frameHeight
+      if (maxWidth / aspectRatio <= maxHeight) {
+        frameWidth = maxWidth
+        frameHeight = maxWidth / aspectRatio
+      } else {
+        frameHeight = maxHeight
+        frameWidth = maxHeight * aspectRatio
+      }
+
+      // Frame is centered in viewport
+      const frameLeft = (window.innerWidth - frameWidth) / 2
+      const frameTop = (window.innerHeight - frameHeight) / 2
+
+      // Get element position to calculate offset
       const rect = this.element.getBoundingClientRect()
 
-      // Calculate the visible portion (clipped to viewport)
-      const visibleWidth = Math.min(rect.width, window.innerWidth - Math.max(0, rect.left))
-      const visibleHeight = Math.min(rect.height, window.innerHeight - Math.max(0, rect.top))
+      // Calculate the offset from element origin to frame origin
+      const offsetX = frameLeft - rect.left
+      const offsetY = frameTop - rect.top
 
-      // Capture with transparent background - only the visible portion
+      // Capture with transparent background - only the export frame area
       const capturedCanvas = await html2canvas(this.element, {
         backgroundColor: null, // Transparent background
         logging: false,
         useCORS: true,
         allowTaint: true,
         scale: 1,
-        width: visibleWidth,
-        height: visibleHeight,
-        windowWidth: visibleWidth,
-        windowHeight: visibleHeight,
-        x: 0,
-        y: 0,
+        width: frameWidth,
+        height: frameHeight,
+        x: offsetX,
+        y: offsetY,
         ignoreElements: (element) => {
-          // Ignore Leaflet controls
-          return element.classList && element.classList.contains('leaflet-control-container')
+          // Ignore Leaflet controls and export frame overlay
+          return element.classList && (
+            element.classList.contains('leaflet-control-container') ||
+            element.classList.contains('export-frame-overlay')
+          )
         }
       })
 

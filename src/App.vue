@@ -697,11 +697,13 @@ function handlePlayAll() {
   // Clear static routes
   renderRuns()
 
-  // Fit map to all filtered runs before starting
-  const allCoordinates = filteredRuns.value.flatMap(run => run.coordinates || [])
-  if (allCoordinates.length > 0) {
-    const bounds = L.latLngBounds(allCoordinates)
-    map.fitBounds(bounds, { padding: [50, 50] })
+  // Fit map to all filtered runs before starting (unless recording - user positioned view manually)
+  if (!isRecording.value) {
+    const allCoordinates = filteredRuns.value.flatMap(run => run.coordinates || [])
+    if (allCoordinates.length > 0) {
+      const bounds = L.latLngBounds(allCoordinates)
+      map.fitBounds(bounds, { padding: [50, 50] })
+    }
   }
 
   animateAllRuns()
@@ -934,8 +936,8 @@ async function animateRun() {
       <em>${run.location}, ${run.state}</em>
     `)
 
-    // Fit map to show the animated route
-    if (partialCoordinates.length > 1) {
+    // Fit map to show the animated route (unless recording - user positioned view manually)
+    if (!isRecording.value && partialCoordinates.length > 1) {
       const bounds = L.latLngBounds(partialCoordinates)
       map.fitBounds(bounds, { padding: [50, 50] })
     }
