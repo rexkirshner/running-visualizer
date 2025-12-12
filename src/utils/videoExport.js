@@ -423,47 +423,33 @@ export class PNGSequenceRecorder {
         }
       }
 
-      // Get map element position
-      const mapRect = this.element.getBoundingClientRect()
-
-      // Capture the full map element first
-      const fullCanvas = await html2canvas(this.element, {
+      // Capture ONLY the export frame region directly using document.body
+      // with x, y, width, height to specify exact viewport coordinates
+      const capturedCanvas = await html2canvas(document.body, {
         backgroundColor: null, // Transparent background
         logging: false,
         useCORS: true,
         allowTaint: true,
         scale: 1,
+        x: frameRect.left,
+        y: frameRect.top,
+        width: frameRect.width,
+        height: frameRect.height,
+        windowWidth: window.innerWidth,
+        windowHeight: window.innerHeight,
         ignoreElements: (element) => {
-          // Ignore Leaflet controls and export frame overlay
-          return element.classList && (
+          // Ignore UI elements we don't want in the export
+          if (!element.classList) return false
+          return (
             element.classList.contains('leaflet-control-container') ||
-            element.classList.contains('export-frame-overlay')
+            element.classList.contains('export-frame-overlay') ||
+            element.classList.contains('animation-controls') ||
+            element.classList.contains('filter-panel') ||
+            element.classList.contains('map-type-selector') ||
+            element.classList.contains('route-color-selector')
           )
         }
       })
-
-      // Calculate scale factor between html2canvas output and actual element size
-      const scaleX = fullCanvas.width / mapRect.width
-      const scaleY = fullCanvas.height / mapRect.height
-
-      // Calculate crop coordinates (frame position relative to element, scaled)
-      const cropX = (frameRect.left - mapRect.left) * scaleX
-      const cropY = (frameRect.top - mapRect.top) * scaleY
-      const cropWidth = frameRect.width * scaleX
-      const cropHeight = frameRect.height * scaleY
-
-      // Create a cropped canvas with just the export frame area
-      const capturedCanvas = document.createElement('canvas')
-      capturedCanvas.width = cropWidth
-      capturedCanvas.height = cropHeight
-      const cropCtx = capturedCanvas.getContext('2d')
-
-      // Draw the cropped region from the full capture
-      cropCtx.drawImage(
-        fullCanvas,
-        cropX, cropY, cropWidth, cropHeight,  // Source rectangle
-        0, 0, cropWidth, cropHeight            // Destination rectangle
-      )
 
       // Create output canvas at target resolution
       const outputCanvas = document.createElement('canvas')
@@ -476,9 +462,9 @@ export class PNGSequenceRecorder {
 
       // Scale to fit while preserving aspect ratio (contain mode)
       // This ensures all routes are visible without distortion
-      const scaleX = outputCanvas.width / capturedCanvas.width
-      const scaleY = outputCanvas.height / capturedCanvas.height
-      const scale = Math.min(scaleX, scaleY) // Use min to fit all content
+      const outputScaleX = outputCanvas.width / capturedCanvas.width
+      const outputScaleY = outputCanvas.height / capturedCanvas.height
+      const scale = Math.min(outputScaleX, outputScaleY) // Use min to fit all content
 
       const destWidth = capturedCanvas.width * scale
       const destHeight = capturedCanvas.height * scale
