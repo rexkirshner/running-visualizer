@@ -10,6 +10,16 @@
       </div>
 
       <div v-else class="filters-form">
+        <!-- Presets -->
+        <div class="filter-section presets-section">
+          <h3>Quick Presets</h3>
+          <div class="presets">
+            <button @click="applyPreset2025MDR" class="preset-btn">
+              2025 Home - MDR
+            </button>
+          </div>
+        </div>
+
         <!-- Date Range -->
         <div class="filter-section">
           <h3>Date Range</h3>
@@ -163,6 +173,15 @@ function resetFilters() {
   selectedCity.value = ''
   selectedState.value = ''
   matchCount.value = totalCount.value
+}
+
+// Apply preset: 2025 Home - MDR
+function applyPreset2025MDR() {
+  startDate.value = '2025-01-01'
+  endDate.value = '2025-12-31'
+  selectedState.value = 'Home - MDR'
+  selectedCity.value = ''
+  updateMatchCount()
 }
 
 // Load runs with current filters
@@ -371,5 +390,33 @@ h1 {
 .load-btn:disabled {
   background: #ccc;
   cursor: not-allowed;
+}
+
+.presets-section {
+  padding-bottom: 16px;
+  border-bottom: 1px solid #eee;
+}
+
+.presets {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.preset-btn {
+  padding: 8px 16px;
+  border: 1px solid #3388ff;
+  border-radius: 20px;
+  background: white;
+  font-size: 13px;
+  font-weight: 500;
+  color: #3388ff;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.preset-btn:hover {
+  background: #3388ff;
+  color: white;
 }
 </style>
