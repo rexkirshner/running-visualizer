@@ -425,66 +425,27 @@ export class PNGSequenceRecorder {
       // Get the map element position
       const mapRect = this.element.getBoundingClientRect()
 
-      // Log coordinates for debugging (first frame only)
-      if (this.frameCount === 0) {
-        console.log('Export frame:', { frameLeft, frameTop, frameWidth, frameHeight })
-        console.log('Map element:', { left: mapRect.left, top: mapRect.top, width: mapRect.width, height: mapRect.height })
-        console.log('Window size:', { width: window.innerWidth, height: window.innerHeight })
-      }
-
-      // Find all Leaflet panes that use CSS transforms and temporarily convert to left/top
-      const panes = this.element.querySelectorAll('.leaflet-pane')
-      const originalStyles = []
-
-      panes.forEach(pane => {
-        const style = window.getComputedStyle(pane)
-        const transform = style.transform
-
-        if (transform && transform !== 'none') {
-          // Parse matrix(a, b, c, d, tx, ty) to get translation values
-          const match = transform.match(/matrix\([^,]+,[^,]+,[^,]+,[^,]+,\s*([^,]+),\s*([^)]+)\)/)
-          if (match) {
-            const tx = parseFloat(match[1])
-            const ty = parseFloat(match[2])
-
-            // Save original style
-            originalStyles.push({
-              element: pane,
-              transform: pane.style.transform,
-              left: pane.style.left,
-              top: pane.style.top
-            })
-
-            // Convert transform to left/top positioning (html2canvas handles this better)
-            pane.style.transform = 'none'
-            pane.style.left = `${tx}px`
-            pane.style.top = `${ty}px`
-          }
-        }
-      })
-
       // Calculate crop coordinates: export frame position relative to map element
       const cropX = frameLeft - mapRect.left
       const cropY = frameTop - mapRect.top
 
+      // Log coordinates for debugging (first frame only)
       if (this.frameCount === 0) {
-        console.log('Crop coordinates:', { cropX, cropY, frameWidth, frameHeight })
-        console.log('Panes modified:', originalStyles.length)
+        console.log('Export frame:', { frameLeft, frameTop, frameWidth, frameHeight })
+        console.log('Map element:', { left: mapRect.left, top: mapRect.top, width: mapRect.width, height: mapRect.height })
+        console.log('Crop region:', { cropX, cropY, frameWidth, frameHeight })
       }
 
-      // Capture the map element - now with transforms converted to left/top
-      const capturedCanvas = await html2canvas(this.element, {
+      // APPROACH: Capture the full map element, then manually crop
+      // This avoids html2canvas issues with scrollX/scrollY and CSS transforms
+
+      // Step 1: Capture the entire map element at its natural size
+      const fullCanvas = await html2canvas(this.element, {
         backgroundColor: null,
         logging: false,
         useCORS: true,
         allowTaint: true,
         scale: 1,
-        width: frameWidth,
-        height: frameHeight,
-        scrollX: -cropX,
-        scrollY: -cropY,
-        windowWidth: mapRect.width,
-        windowHeight: mapRect.height,
         ignoreElements: (element) => {
           if (!element.classList) return false
           return (
@@ -494,19 +455,28 @@ export class PNGSequenceRecorder {
         }
       })
 
-      // Restore original transforms
-      originalStyles.forEach(({ element, transform, left, top }) => {
-        element.style.transform = transform
-        element.style.left = left
-        element.style.top = top
-      })
-
-      // Log canvas size for debugging (first frame only)
       if (this.frameCount === 0) {
-        console.log('Captured canvas size:', { width: capturedCanvas.width, height: capturedCanvas.height })
+        console.log('Full canvas size:', { width: fullCanvas.width, height: fullCanvas.height })
       }
 
-      // Create output canvas at target resolution
+      // Step 2: Create a cropped canvas at the export frame dimensions
+      const croppedCanvas = document.createElement('canvas')
+      croppedCanvas.width = frameWidth
+      croppedCanvas.height = frameHeight
+      const croppedCtx = croppedCanvas.getContext('2d')
+
+      // Clear to transparent
+      croppedCtx.clearRect(0, 0, croppedCanvas.width, croppedCanvas.height)
+
+      // Draw the cropped region from the full canvas
+      // drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight)
+      croppedCtx.drawImage(
+        fullCanvas,
+        cropX, cropY, frameWidth, frameHeight,  // Source region (crop from full canvas)
+        0, 0, frameWidth, frameHeight           // Destination (fill cropped canvas)
+      )
+
+      // Step 3: Scale to output resolution
       const outputCanvas = document.createElement('canvas')
       outputCanvas.width = this.options.width
       outputCanvas.height = this.options.height
@@ -515,19 +485,8 @@ export class PNGSequenceRecorder {
       // Keep transparent (don't fill background)
       ctx.clearRect(0, 0, outputCanvas.width, outputCanvas.height)
 
-      // Scale to fit while preserving aspect ratio (contain mode)
-      // This ensures all routes are visible without distortion
-      const outputScaleX = outputCanvas.width / capturedCanvas.width
-      const outputScaleY = outputCanvas.height / capturedCanvas.height
-      const scale = Math.min(outputScaleX, outputScaleY) // Use min to fit all content
-
-      const destWidth = capturedCanvas.width * scale
-      const destHeight = capturedCanvas.height * scale
-      // Center the content in the output canvas
-      const destX = (outputCanvas.width - destWidth) / 2
-      const destY = (outputCanvas.height - destHeight) / 2
-
-      ctx.drawImage(capturedCanvas, destX, destY, destWidth, destHeight)
+      // Scale the cropped image to fill the output canvas
+      ctx.drawImage(croppedCanvas, 0, 0, outputCanvas.width, outputCanvas.height)
 
       // Convert to PNG blob
       const blob = await new Promise(resolve => outputCanvas.toBlob(resolve, 'image/png'))
