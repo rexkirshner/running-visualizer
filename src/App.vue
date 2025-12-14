@@ -19,6 +19,16 @@
         <div class="export-frame-label">{{ exportResolution }}</div>
       </div>
 
+      <!-- Failed Loads Warning -->
+      <div v-if="failedLoads.length > 0 && !loading" class="failed-loads-banner">
+        <span class="failed-loads-icon">!</span>
+        <span class="failed-loads-text">
+          {{ failedLoads.length }} run{{ failedLoads.length === 1 ? '' : 's' }} failed to load
+        </span>
+        <button class="failed-loads-details" @click="showFailedLoadsDetails">Details</button>
+        <button class="failed-loads-dismiss" @click="failedLoads = []">&times;</button>
+      </div>
+
       <!-- Map Type Selector (top-center) -->
       <MapTypeSelector
       v-if="!loading"
@@ -147,6 +157,7 @@ const initialFilters = ref(null)
 
 const mapContainer = ref(null)
 const runs = ref([])
+const failedLoads = ref([])  // Track GPX files that failed to load
 const loading = ref(true)
 const loadedCount = ref(0)
 const totalCount = ref(0)
@@ -252,6 +263,22 @@ const filteredRuns = computed(() => {
 })
 
 /**
+ * Show details about failed GPX file loads in an alert
+ */
+function showFailedLoadsDetails() {
+  const details = failedLoads.value
+    .slice(0, 10) // Limit to first 10 to avoid huge alert
+    .map(f => `- ${f.name || f.filename}: ${f.error}`)
+    .join('\n')
+
+  const moreText = failedLoads.value.length > 10
+    ? `\n\n...and ${failedLoads.value.length - 10} more`
+    : ''
+
+  alert(`Failed to load the following runs:\n\n${details}${moreText}`)
+}
+
+/**
  * Handle setup page load event
  * Switches to map view and loads runs with filters
  */
@@ -276,15 +303,21 @@ async function handleSetupLoad(filters) {
 
   // Load and display runs with filters
   try {
-    runs.value = await loadAllRuns((loaded, total) => {
+    const result = await loadAllRuns((loaded, total) => {
       loadedCount.value = loaded
       totalCount.value = total
     }, filters)
+
+    runs.value = result.runs
+    failedLoads.value = result.failed
 
     // Initial render
     renderRuns()
 
     log.info(`Loaded ${runs.value.length} runs`)
+    if (failedLoads.value.length > 0) {
+      log.warn(`Failed to load ${failedLoads.value.length} GPX files`)
+    }
   } catch (error) {
     log.error('Error loading runs:', error)
   } finally {
@@ -1007,6 +1040,69 @@ onUnmounted(() => {
 .date-filter-position {
   left: 20px;
   right: auto;
+}
+
+/* Failed loads warning banner */
+.failed-loads-banner {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 1001;
+  font-size: 13px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.failed-loads-icon {
+  background: #f59e0b;
+  color: white;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 12px;
+}
+
+.failed-loads-text {
+  color: #92400e;
+}
+
+.failed-loads-details {
+  background: transparent;
+  border: 1px solid #f59e0b;
+  border-radius: 4px;
+  padding: 2px 8px;
+  color: #92400e;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.failed-loads-details:hover {
+  background: #fde68a;
+}
+
+.failed-loads-dismiss {
+  background: transparent;
+  border: none;
+  color: #92400e;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.failed-loads-dismiss:hover {
+  color: #78350f;
 }
 
 .loading {

@@ -1,9 +1,9 @@
 /**
  * Tests for dataLoader.js
- * Focuses on filterActivities function and date parsing
+ * Covers filterActivities function, date parsing, and GPX parsing
  */
 import { describe, it, expect } from 'vitest'
-import { filterActivities } from '../dataLoader.js'
+import { filterActivities, parseGPX } from '../dataLoader.js'
 
 // Sample test data
 const sampleActivities = [
@@ -260,5 +260,82 @@ describe('filterActivities', () => {
       })
       expect(result).toHaveLength(5)
     })
+  })
+})
+
+describe('parseGPX', () => {
+  it('should parse valid GPX with track points', () => {
+    const gpxXML = `<?xml version="1.0" encoding="UTF-8"?>
+      <gpx version="1.1">
+        <trk>
+          <trkseg>
+            <trkpt lat="34.0522" lon="-118.2437"></trkpt>
+            <trkpt lat="34.0530" lon="-118.2440"></trkpt>
+            <trkpt lat="34.0540" lon="-118.2450"></trkpt>
+          </trkseg>
+        </trk>
+      </gpx>`
+
+    const result = parseGPX(gpxXML)
+    expect(result).toHaveLength(3)
+    expect(result[0]).toEqual([34.0522, -118.2437])
+    expect(result[1]).toEqual([34.0530, -118.2440])
+    expect(result[2]).toEqual([34.0540, -118.2450])
+  })
+
+  it('should return empty array for GPX with no track points', () => {
+    const gpxXML = `<?xml version="1.0" encoding="UTF-8"?>
+      <gpx version="1.1">
+        <trk>
+          <trkseg>
+          </trkseg>
+        </trk>
+      </gpx>`
+
+    const result = parseGPX(gpxXML)
+    expect(result).toHaveLength(0)
+  })
+
+  it('should return empty array for empty GPX', () => {
+    const gpxXML = `<?xml version="1.0" encoding="UTF-8"?>
+      <gpx version="1.1"></gpx>`
+
+    const result = parseGPX(gpxXML)
+    expect(result).toHaveLength(0)
+  })
+
+  it('should skip track points with invalid coordinates', () => {
+    const gpxXML = `<?xml version="1.0" encoding="UTF-8"?>
+      <gpx version="1.1">
+        <trk>
+          <trkseg>
+            <trkpt lat="34.0522" lon="-118.2437"></trkpt>
+            <trkpt lat="invalid" lon="-118.2440"></trkpt>
+            <trkpt lat="34.0540" lon="-118.2450"></trkpt>
+          </trkseg>
+        </trk>
+      </gpx>`
+
+    const result = parseGPX(gpxXML)
+    expect(result).toHaveLength(2)
+    expect(result[0]).toEqual([34.0522, -118.2437])
+    expect(result[1]).toEqual([34.0540, -118.2450])
+  })
+
+  it('should handle multiple track segments', () => {
+    const gpxXML = `<?xml version="1.0" encoding="UTF-8"?>
+      <gpx version="1.1">
+        <trk>
+          <trkseg>
+            <trkpt lat="34.0522" lon="-118.2437"></trkpt>
+          </trkseg>
+          <trkseg>
+            <trkpt lat="35.0522" lon="-119.2437"></trkpt>
+          </trkseg>
+        </trk>
+      </gpx>`
+
+    const result = parseGPX(gpxXML)
+    expect(result).toHaveLength(2)
   })
 })

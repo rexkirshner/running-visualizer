@@ -136,18 +136,45 @@ export function mergeActivityData(activities, locations) {
 }
 
 /**
+ * Result from loading a GPX file
+ * @typedef {Object} GPXLoadResult
+ * @property {Array<Array<number>>} coordinates - Array of [lat, lon] coordinates
+ * @property {string|null} error - Error message if load failed, null on success
+ */
+
+/**
  * Load and parse a single GPX file
  * @param {string} filename - Filename from CSV (e.g., "activities/123456.gpx")
- * @returns {Promise<Array>} Array of [lat, lon] coordinates
+ * @returns {Promise<GPXLoadResult>} Result with coordinates and optional error
  */
 export async function loadGPXFile(filename) {
   try {
     const response = await fetch(`/data/${filename}`)
+
+    if (!response.ok) {
+      return {
+        coordinates: [],
+        error: `HTTP ${response.status}: ${response.statusText}`
+      }
+    }
+
     const gpxText = await response.text()
-    return parseGPX(gpxText)
+    const coordinates = parseGPX(gpxText)
+
+    if (coordinates.length === 0) {
+      return {
+        coordinates: [],
+        error: 'No valid GPS coordinates found in file'
+      }
+    }
+
+    return { coordinates, error: null }
   } catch (error) {
     log.error(`Failed to load GPX file: ${filename}`, error)
-    return []
+    return {
+      coordinates: [],
+      error: error.message || 'Unknown error'
+    }
   }
 }
 
@@ -255,43 +282,78 @@ export function filterActivities(activities, filters = {}) {
 }
 
 /**
+ * Failed GPX load information
+ * @typedef {Object} FailedLoad
+ * @property {string} id - Activity ID
+ * @property {string} name - Activity name
+ * @property {string} date - Activity date
+ * @property {string} filename - GPX filename
+ * @property {string} error - Error message
+ */
+
+/**
+ * Result from loading GPX files
+ * @typedef {Object} GPXLoadBatchResult
+ * @property {Array} runs - Successfully loaded runs with coordinates
+ * @property {Array<FailedLoad>} failed - Array of failed load information
+ */
+
+/**
  * Load GPX data for a filtered set of activities
  * @param {Array} activities - Array of activity metadata (already filtered)
  * @param {Function} onProgress - Optional callback for progress updates (loaded, total)
- * @returns {Promise<Array>} Array of runs with coordinates
+ * @returns {Promise<GPXLoadBatchResult>} Result with runs and failed loads
  */
 export async function loadGPXForActivities(activities, onProgress = null) {
   log.info(`Loading GPX files for ${activities.length} activities...`)
   const runs = []
+  const failed = []
 
   // Load GPX files in batches to avoid overwhelming the browser
   for (let i = 0; i < activities.length; i += GPX_BATCH_SIZE) {
     const batch = activities.slice(i, i + GPX_BATCH_SIZE)
 
     const batchPromises = batch.map(async (activity) => {
-      const coordinates = await loadGPXFile(activity.filename)
+      const result = await loadGPXFile(activity.filename)
       return {
-        ...activity,
-        coordinates
+        activity,
+        result
       }
     })
 
     const batchResults = await Promise.all(batchPromises)
-    runs.push(...batchResults)
+
+    for (const { activity, result } of batchResults) {
+      if (result.error) {
+        failed.push({
+          id: activity.id,
+          name: activity.name,
+          date: activity.date,
+          filename: activity.filename,
+          error: result.error
+        })
+      } else {
+        runs.push({
+          ...activity,
+          coordinates: result.coordinates
+        })
+      }
+    }
 
     // Report progress
     if (onProgress) {
-      onProgress(runs.length, activities.length)
+      onProgress(runs.length + failed.length, activities.length)
     }
 
-    log.debug(`Loaded ${runs.length} / ${activities.length} runs`)
+    log.debug(`Processed ${runs.length + failed.length} / ${activities.length} runs (${failed.length} failed)`)
   }
 
-  // Filter out runs with no coordinates
-  const validRuns = runs.filter(run => run.coordinates.length > 0)
-  log.info(`Successfully loaded ${validRuns.length} runs with GPS data`)
+  if (failed.length > 0) {
+    log.warn(`Failed to load ${failed.length} GPX files`)
+  }
+  log.info(`Successfully loaded ${runs.length} runs with GPS data`)
 
-  return validRuns
+  return { runs, failed }
 }
 
 /**
@@ -299,7 +361,7 @@ export async function loadGPXForActivities(activities, onProgress = null) {
  * Excludes treadmill runs (no GPS data)
  * @param {Function} onProgress - Optional callback for progress updates (loaded, total)
  * @param {Object} filters - Optional filter criteria
- * @returns {Promise<Array>} Array of runs with coordinates and location data
+ * @returns {Promise<GPXLoadBatchResult>} Result with runs array and failed loads array
  */
 export async function loadAllRuns(onProgress = null, filters = null) {
   // Load metadata first
