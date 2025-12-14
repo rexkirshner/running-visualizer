@@ -31,8 +31,16 @@
 
 <script setup>
 const props = defineProps({
-  startDate: String,
-  endDate: String
+  /** Start date filter value (YYYY-MM-DD format) */
+  startDate: {
+    type: String,
+    default: ''
+  },
+  /** End date filter value (YYYY-MM-DD format) */
+  endDate: {
+    type: String,
+    default: ''
+  }
 })
 
 const emit = defineEmits(['update:startDate', 'update:endDate', 'reset'])
