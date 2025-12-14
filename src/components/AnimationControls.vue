@@ -32,8 +32,8 @@
         <input
           id="duration-slider"
           type="range"
-          min="1"
-          max="60"
+          :min="durationMin"
+          :max="durationMax"
           step="1"
           :value="duration"
           @input="handleDurationChange"
@@ -115,8 +115,8 @@
           <input
             id="dot-size-slider"
             type="range"
-            min="1"
-            max="15"
+            :min="dotSizeMin"
+            :max="dotSizeMax"
             step="1"
             :value="runnerDotSize"
             @input="handleRunnerDotSizeChange"
@@ -204,7 +204,14 @@
  * @emits reset - When reset button is clicked
  */
 
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { ANIMATION_DURATION, RUNNER_DOT_SIZE } from '../utils/constants'
+
+// Expose constants for template binding
+const durationMin = computed(() => ANIMATION_DURATION.min)
+const durationMax = computed(() => ANIMATION_DURATION.max)
+const dotSizeMin = computed(() => RUNNER_DOT_SIZE.min)
+const dotSizeMax = computed(() => RUNNER_DOT_SIZE.max)
 
 const props = defineProps({
   /** Array of available runs to animate */

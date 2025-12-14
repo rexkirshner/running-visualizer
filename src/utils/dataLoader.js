@@ -3,6 +3,8 @@
  * Loads and parses activities.csv and GPX files
  */
 
+import { GPX_BATCH_SIZE } from './constants.js'
+
 /**
  * Load and parse the activities CSV file
  * @returns {Promise<Array>} Array of activity objects with metadata
@@ -260,9 +262,8 @@ export async function loadGPXForActivities(activities, onProgress = null) {
   const runs = []
 
   // Load GPX files in batches to avoid overwhelming the browser
-  const batchSize = 50
-  for (let i = 0; i < activities.length; i += batchSize) {
-    const batch = activities.slice(i, i + batchSize)
+  for (let i = 0; i < activities.length; i += GPX_BATCH_SIZE) {
+    const batch = activities.slice(i, i + GPX_BATCH_SIZE)
 
     const batchPromises = batch.map(async (activity) => {
       const coordinates = await loadGPXFile(activity.filename)

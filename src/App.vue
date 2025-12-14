@@ -121,7 +121,16 @@ import {
   generateFilename
 } from './utils/videoExport'
 import { getExportFrameFromDOM } from './utils/exportFrame'
-import { getAspectRatio } from './utils/constants'
+import {
+  getAspectRatio,
+  MAP_FIT_BOUNDS_PADDING,
+  DEFAULT_MAP_CENTER,
+  DEFAULT_MAP_ZOOM,
+  MAP_ZOOM_CONFIG,
+  ROUTE_STYLE,
+  COLOR_PALETTE,
+  DEFAULT_ROUTE_COLOR
+} from './utils/constants'
 import DateRangeFilter from './components/DateRangeFilter.vue'
 import LocationFilter from './components/LocationFilter.vue'
 import AnimationControls from './components/AnimationControls.vue'
@@ -175,7 +184,7 @@ const mapType = ref('none')
 
 // Route color state
 const colorMode = ref('single') // 'single' or 'multiple'
-const singleColor = ref('#3388ff')
+const singleColor = ref(DEFAULT_ROUTE_COLOR)
 
 // Runner dot state
 const showRunnerDots = ref(true)
@@ -251,11 +260,7 @@ async function handleSetupLoad(filters) {
   await nextTick()
 
   // Initialize Leaflet map centered on Southern California
-  map = L.map(mapContainer.value, {
-    zoomSnap: 0.1,      // Allow fractional zoom levels
-    zoomDelta: 0.5,     // Smaller zoom steps when using +/- buttons
-    wheelPxPerZoomLevel: 120  // Smoother scroll wheel zooming
-  }).setView([34.0, -118.4], 11)
+  map = L.map(mapContainer.value, MAP_ZOOM_CONFIG).setView(DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM)
 
   // Add initial tile layer based on mapType default
   const initialTileConfig = tileLayers[mapType.value]
@@ -308,7 +313,7 @@ function renderRuns() {
 
     if (allCoordinates.length > 0) {
       const bounds = L.latLngBounds(allCoordinates)
-      map.fitBounds(bounds, { padding: [50, 50] })
+      map.fitBounds(bounds, { padding: MAP_FIT_BOUNDS_PADDING })
     }
   }
 
@@ -317,8 +322,8 @@ function renderRuns() {
     if (run.coordinates && run.coordinates.length > 0) {
       const polyline = L.polyline(run.coordinates, {
         color: getRouteColor(index),
-        weight: 2,
-        opacity: 0.6
+        weight: ROUTE_STYLE.weight,
+        opacity: ROUTE_STYLE.opacity
       })
 
       // Add popup with run details including location
@@ -436,8 +441,7 @@ function handleMapTypeChange(newType) {
 // Route Color Handlers
 // ============================================
 
-/** Color palette for multiple color mode */
-const colorPalette = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#3b82f6', '#8b5cf6', '#ec4899']
+// Color palette imported from constants.js as COLOR_PALETTE
 
 /**
  * Get color for a route based on current color mode
@@ -448,7 +452,7 @@ function getRouteColor(index) {
   if (colorMode.value === 'single') {
     return singleColor.value
   }
-  return colorPalette[index % colorPalette.length]
+  return COLOR_PALETTE[index % COLOR_PALETTE.length]
 }
 
 function handleColorModeChange(newMode) {
@@ -684,7 +688,7 @@ function handlePlayAll() {
     const allCoordinates = filteredRuns.value.flatMap(run => run.coordinates || [])
     if (allCoordinates.length > 0) {
       const bounds = L.latLngBounds(allCoordinates)
-      map.fitBounds(bounds, { padding: [50, 50] })
+      map.fitBounds(bounds, { padding: MAP_FIT_BOUNDS_PADDING })
     }
   }
 
@@ -783,8 +787,8 @@ async function animateAllRuns() {
 
       const polyline = L.polyline(partialCoordinates, {
         color: routeColor,
-        weight: 2,
-        opacity: 0.7
+        weight: ROUTE_STYLE.weight,
+        opacity: ROUTE_STYLE.animatedOpacity
       }).addTo(map)
 
       // Add runner dot at the head of this route (if enabled)
@@ -885,12 +889,12 @@ async function animateRun() {
     }
 
     // Draw new polyline with current progress
-    // Use single color if set, otherwise red for visibility
-    const animationColor = colorMode.value === 'single' ? singleColor.value : '#ef4444'
+    // Use single color if set, otherwise first color from palette for visibility
+    const animationColor = colorMode.value === 'single' ? singleColor.value : COLOR_PALETTE[0]
     animatedPolyline = L.polyline(partialCoordinates, {
       color: animationColor,
-      weight: 3,
-      opacity: 0.8
+      weight: ROUTE_STYLE.animatedWeight,
+      opacity: ROUTE_STYLE.animatedOpacity
     }).addTo(map)
 
     // Update runner dot at the head of the route (if enabled)
@@ -921,7 +925,7 @@ async function animateRun() {
     // Fit map to show the animated route (unless recording - user positioned view manually)
     if (!isRecording.value && partialCoordinates.length > 1) {
       const bounds = L.latLngBounds(partialCoordinates)
-      map.fitBounds(bounds, { padding: [50, 50] })
+      map.fitBounds(bounds, { padding: MAP_FIT_BOUNDS_PADDING })
     }
   }
 
