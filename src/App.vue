@@ -107,7 +107,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import L from 'leaflet'
-import { loadAllRuns } from './utils/dataLoader'
+import { loadAllRuns, filterActivities } from './utils/dataLoader'
 import {
   createRunnerDot,
   updateRunnerDotPosition,
@@ -210,12 +210,6 @@ const uniqueCountries = computed(() => {
   return countries.sort()
 })
 
-// Parse date string from CSV format to Date object
-function parseActivityDate(dateStr) {
-  // Format: "Mar 24, 2017, 5:42:11 PM"
-  return new Date(dateStr)
-}
-
 /**
  * Compute export frame overlay style
  * Centers a frame with the export aspect ratio on the visible map area
@@ -233,41 +227,15 @@ const exportFrameStyle = computed(() => {
 
 /**
  * Filter runs by date range AND location
- * Combines all active filters
+ * Uses filterActivities from dataLoader.js as single source of truth
  */
 const filteredRuns = computed(() => {
-  return runs.value.filter(run => {
-    // Date range filter
-    if (startDate.value || endDate.value) {
-      const runDate = parseActivityDate(run.date)
-
-      if (startDate.value) {
-        const start = new Date(startDate.value)
-        start.setHours(0, 0, 0, 0)
-        if (runDate < start) return false
-      }
-
-      if (endDate.value) {
-        const end = new Date(endDate.value)
-        end.setHours(23, 59, 59, 999)
-        if (runDate > end) return false
-      }
-    }
-
-    // Location filters
-    if (selectedCity.value && run.location !== selectedCity.value) {
-      return false
-    }
-
-    if (selectedState.value && run.state !== selectedState.value) {
-      return false
-    }
-
-    if (selectedCountry.value && run.country !== selectedCountry.value) {
-      return false
-    }
-
-    return true
+  return filterActivities(runs.value, {
+    startDate: startDate.value,
+    endDate: endDate.value,
+    city: selectedCity.value,
+    state: selectedState.value,
+    country: selectedCountry.value
   })
 })
 
