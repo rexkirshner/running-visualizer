@@ -20,6 +20,9 @@
  */
 
 import L from 'leaflet'
+import { createLogger } from './logger.js'
+
+const log = createLogger('RunnerDot')
 
 /**
  * Default styling options for runner dots
@@ -50,7 +53,7 @@ const DEFAULT_OPTIONS = {
  */
 export function createRunnerDot(map, position, color, options = {}) {
   if (!map || !position || !color) {
-    console.warn('createRunnerDot: Missing required parameters (map, position, or color)')
+    log.warn('createRunnerDot: Missing required parameters (map, position, or color)')
     return null
   }
 

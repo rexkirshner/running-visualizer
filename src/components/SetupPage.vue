@@ -93,7 +93,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { loadMetadataOnly, filterActivities } from '../utils/dataLoader'
 import { preloadFFmpeg } from '../utils/videoExport'
+import { createLogger } from '../utils/logger'
 
+const log = createLogger('SetupPage')
 const emit = defineEmits(['load'])
 
 // Metadata state
@@ -195,9 +197,9 @@ onMounted(async () => {
   // Start preloading ffmpeg in background (don't await - let it load while user selects filters)
   preloadFFmpeg().then(success => {
     if (success) {
-      console.log('FFmpeg ready for video export')
+      log.info('FFmpeg ready for video export')
     } else {
-      console.warn('FFmpeg preload failed - video export will fall back to WebM')
+      log.warn('FFmpeg preload failed - video export will fall back to WebM')
     }
   })
 
@@ -206,7 +208,7 @@ onMounted(async () => {
     totalCount.value = allActivities.value.length
     matchCount.value = totalCount.value
   } catch (error) {
-    console.error('Failed to load metadata:', error)
+    log.error('Failed to load metadata:', error)
   } finally {
     loadingMetadata.value = false
   }
