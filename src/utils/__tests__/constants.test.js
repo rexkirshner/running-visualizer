@@ -7,10 +7,12 @@ import {
   ANIMATION_DURATION,
   EXPORT_RESOLUTIONS,
   EXPORT_FRAME_RATES,
+  EXPORT_VALIDATION,
   COLOR_PALETTE,
   Z_INDEX,
   parseResolution,
-  getAspectRatio
+  getAspectRatio,
+  validateExportSettings
 } from '../constants.js'
 
 describe('constants', () => {
@@ -111,5 +113,109 @@ describe('getAspectRatio', () => {
 
     // 1:1
     expect(getAspectRatio('1000x1000')).toBe(1)
+  })
+})
+
+describe('validateExportSettings', () => {
+  it('should accept valid export settings', () => {
+    const result = validateExportSettings({
+      width: 1920,
+      height: 1080,
+      frameRate: 30
+    })
+    expect(result.valid).toBe(true)
+    expect(result.errors).toHaveLength(0)
+  })
+
+  it('should accept valid settings with duration', () => {
+    const result = validateExportSettings({
+      width: 3840,
+      height: 2160,
+      frameRate: 60,
+      targetDuration: 30
+    })
+    expect(result.valid).toBe(true)
+    expect(result.errors).toHaveLength(0)
+  })
+
+  it('should reject width below minimum', () => {
+    const result = validateExportSettings({
+      width: 50,
+      height: 1080,
+      frameRate: 30
+    })
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(e => e.includes('Width'))).toBe(true)
+  })
+
+  it('should reject width above maximum', () => {
+    const result = validateExportSettings({
+      width: 10000,
+      height: 1080,
+      frameRate: 30
+    })
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(e => e.includes('Width'))).toBe(true)
+  })
+
+  it('should reject height below minimum', () => {
+    const result = validateExportSettings({
+      width: 1920,
+      height: 50,
+      frameRate: 30
+    })
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(e => e.includes('Height'))).toBe(true)
+  })
+
+  it('should reject frame rate below minimum', () => {
+    const result = validateExportSettings({
+      width: 1920,
+      height: 1080,
+      frameRate: 0
+    })
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(e => e.includes('Frame rate'))).toBe(true)
+  })
+
+  it('should reject frame rate above maximum', () => {
+    const result = validateExportSettings({
+      width: 1920,
+      height: 1080,
+      frameRate: 200
+    })
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(e => e.includes('Frame rate'))).toBe(true)
+  })
+
+  it('should reject duration above maximum', () => {
+    const result = validateExportSettings({
+      width: 1920,
+      height: 1080,
+      frameRate: 30,
+      targetDuration: 5000
+    })
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(e => e.includes('Duration'))).toBe(true)
+  })
+
+  it('should reject non-numeric values', () => {
+    const result = validateExportSettings({
+      width: 'invalid',
+      height: 1080,
+      frameRate: 30
+    })
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(e => e.includes('Width'))).toBe(true)
+  })
+
+  it('should collect multiple errors', () => {
+    const result = validateExportSettings({
+      width: 50,
+      height: 50,
+      frameRate: 0
+    })
+    expect(result.valid).toBe(false)
+    expect(result.errors.length).toBeGreaterThan(1)
   })
 })

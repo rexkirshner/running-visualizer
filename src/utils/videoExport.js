@@ -13,7 +13,7 @@ import { fetchFile, toBlobURL } from '@ffmpeg/util'
 import JSZip from 'jszip'
 import { createLogger } from './logger.js'
 import { calculateExportFrame, calculateCropRegion } from './exportFrame.js'
-import { PROGRESS_LOG_INTERVAL } from './constants.js'
+import { PROGRESS_LOG_INTERVAL, validateExportSettings } from './constants.js'
 
 const log = createLogger('VideoExport')
 
@@ -352,12 +352,24 @@ export class PNGSequenceRecorder {
    */
   constructor(element, options = {}) {
     this.element = element
-    this.options = {
+
+    // Build options with defaults
+    const resolvedOptions = {
       width: options.width || 1920,
       height: options.height || 1080,
       frameRate: options.frameRate || 30,
       targetDuration: options.targetDuration || 10
     }
+
+    // Validate export settings
+    const validation = validateExportSettings(resolvedOptions)
+    if (!validation.valid) {
+      const errorMsg = `Invalid export settings: ${validation.errors.join(', ')}`
+      log.error(errorMsg)
+      throw new Error(errorMsg)
+    }
+
+    this.options = resolvedOptions
 
     // Store pre-captured export frame dimensions
     // This is critical: frame must be captured BEFORE recording starts

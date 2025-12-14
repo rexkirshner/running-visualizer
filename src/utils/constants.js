@@ -88,6 +88,66 @@ export const EXPORT_DEFAULTS = {
 }
 
 /**
+ * Export validation bounds
+ * Used to validate export settings before recording
+ */
+export const EXPORT_VALIDATION = {
+  width: { min: 100, max: 8000 },
+  height: { min: 100, max: 8000 },
+  frameRate: { min: 1, max: 120 },
+  duration: { min: 1, max: 3600 }  // Max 1 hour
+}
+
+/**
+ * Validate export settings
+ * @param {Object} options - Export options to validate
+ * @param {number} options.width - Output width
+ * @param {number} options.height - Output height
+ * @param {number} options.frameRate - Frame rate
+ * @param {number} [options.targetDuration] - Target duration
+ * @returns {{ valid: boolean, errors: string[] }} Validation result
+ */
+export function validateExportSettings(options) {
+  const errors = []
+  const v = EXPORT_VALIDATION
+
+  // Width validation
+  if (typeof options.width !== 'number' || !Number.isFinite(options.width)) {
+    errors.push('Width must be a valid number')
+  } else if (options.width < v.width.min || options.width > v.width.max) {
+    errors.push(`Width must be between ${v.width.min} and ${v.width.max}`)
+  }
+
+  // Height validation
+  if (typeof options.height !== 'number' || !Number.isFinite(options.height)) {
+    errors.push('Height must be a valid number')
+  } else if (options.height < v.height.min || options.height > v.height.max) {
+    errors.push(`Height must be between ${v.height.min} and ${v.height.max}`)
+  }
+
+  // Frame rate validation
+  if (typeof options.frameRate !== 'number' || !Number.isFinite(options.frameRate)) {
+    errors.push('Frame rate must be a valid number')
+  } else if (options.frameRate < v.frameRate.min || options.frameRate > v.frameRate.max) {
+    errors.push(`Frame rate must be between ${v.frameRate.min} and ${v.frameRate.max}`)
+  }
+
+  // Duration validation (if provided)
+  if (options.targetDuration !== undefined) {
+    if (typeof options.targetDuration !== 'number' || !Number.isFinite(options.targetDuration)) {
+      errors.push('Duration must be a valid number')
+    } else if (options.targetDuration < v.duration.min || options.targetDuration > v.duration.max) {
+      errors.push(`Duration must be between ${v.duration.min} and ${v.duration.max} seconds`)
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors
+  }
+}
+
+/**
  * Export frame overlay styling
  */
 export const EXPORT_FRAME_OVERLAY = {
