@@ -131,6 +131,9 @@ import {
   COLOR_PALETTE,
   DEFAULT_ROUTE_COLOR
 } from './utils/constants'
+import { createLogger } from './utils/logger'
+
+const log = createLogger('App')
 import DateRangeFilter from './components/DateRangeFilter.vue'
 import LocationFilter from './components/LocationFilter.vue'
 import AnimationControls from './components/AnimationControls.vue'
@@ -281,9 +284,9 @@ async function handleSetupLoad(filters) {
     // Initial render
     renderRuns()
 
-    console.log(`Loaded ${runs.value.length} runs`)
+    log.info(`Loaded ${runs.value.length} runs`)
   } catch (error) {
-    console.error('Error loading runs:', error)
+    log.error('Error loading runs:', error)
   } finally {
     loading.value = false
   }
@@ -340,7 +343,7 @@ function renderRuns() {
     }
   })
 
-  console.log(`Rendered ${runsToRender.length} runs on the map`)
+  log.debug(`Rendered ${runsToRender.length} runs on the map`)
 }
 
 // Date filter handlers
@@ -509,7 +512,7 @@ async function handleToggleRecording() {
   if (isRecording.value) {
     // Request stop - set flag that animation loop will check
     if (pngRecorder) {
-      console.log('Requesting recording stop...')
+      log.debug('Requesting recording stop...')
       pngRecorder.requestStop()
       // The actual stop will happen in the animation loop when it checks the flag
     }
@@ -517,7 +520,7 @@ async function handleToggleRecording() {
     // Start recording
     const mapElement = mapContainer.value
     if (!mapElement) {
-      console.error('Map container not found')
+      log.error('Map container not found')
       return
     }
 
@@ -528,7 +531,7 @@ async function handleToggleRecording() {
     // CRITICAL: Capture export frame dimensions BEFORE recording starts
     // The overlay will be hidden during recording, so we need to capture now
     const exportFrame = getExportFrameFromDOM('.export-frame-overlay', aspectRatio)
-    console.log('Captured export frame for recording:', exportFrame)
+    log.debug('Captured export frame for recording:', exportFrame)
 
     pngRecorder = new PNGSequenceRecorder(mapElement, {
       width,
@@ -551,16 +554,16 @@ async function handleToggleRecording() {
 async function finalizeRecording() {
   if (!pngRecorder) return
 
-  console.log('Finalizing recording...')
+  log.debug('Finalizing recording...')
   const result = await pngRecorder.stop()
-  console.log('Recording stopped, result:', result)
+  log.debug('Recording stopped, result:', result)
 
   if (result && result.blob) {
     const filename = generateFilename('run-animation-frames', 'zip')
-    console.log('Downloading:', filename)
+    log.info('Downloading:', filename)
     downloadBlob(result.blob, filename)
   } else {
-    console.error('No result or blob from recording')
+    log.error('No result or blob from recording')
   }
 
   pngRecorder = null
@@ -741,7 +744,7 @@ async function animateAllRuns() {
 
   // Check if stop was requested during recording
   if (pngRecorder && pngRecorder.stopRequested) {
-    console.log('Stop requested - finalizing recording...')
+    log.debug('Stop requested - finalizing recording...')
     isAnimatingAll.value = false
     animationFrameIdAll = null
     // Clean up runner dots
@@ -850,7 +853,7 @@ async function animateRun() {
 
   // Check if stop was requested during recording
   if (pngRecorder && pngRecorder.stopRequested) {
-    console.log('Stop requested - finalizing recording...')
+    log.debug('Stop requested - finalizing recording...')
     isAnimating.value = false
     animationFrameId = null
     await finalizeRecording()

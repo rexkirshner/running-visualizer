@@ -4,6 +4,9 @@
  */
 
 import { GPX_BATCH_SIZE } from './constants.js'
+import { createLogger } from './logger.js'
+
+const log = createLogger('DataLoader')
 
 /**
  * Load and parse the activities CSV file
@@ -105,7 +108,7 @@ export async function loadLocationsCSV() {
     })
   }
 
-  console.log(`Loaded location data for ${locations.size} activities`)
+  log.debug(`Loaded location data for ${locations.size} activities`)
   return locations
 }
 
@@ -143,7 +146,7 @@ export async function loadGPXFile(filename) {
     const gpxText = await response.text()
     return parseGPX(gpxText)
   } catch (error) {
-    console.error(`Failed to load GPX file: ${filename}`, error)
+    log.error(`Failed to load GPX file: ${filename}`, error)
     return []
   }
 }
@@ -178,19 +181,19 @@ export function parseGPX(gpxXML) {
  * @returns {Promise<Array>} Array of activity metadata
  */
 export async function loadMetadataOnly() {
-  console.log('Loading activities CSV...')
+  log.debug('Loading activities CSV...')
   const activities = await loadActivitiesCSV()
-  console.log(`Found ${activities.length} running activities`)
+  log.info(`Found ${activities.length} running activities`)
 
-  console.log('Loading location data...')
+  log.debug('Loading location data...')
   const locations = await loadLocationsCSV()
 
-  console.log('Merging activity and location data...')
+  log.debug('Merging activity and location data...')
   const mergedActivities = mergeActivityData(activities, locations)
 
   // Filter out treadmill runs (they have no meaningful GPS data)
   const outdoorActivities = mergedActivities.filter(activity => !activity.treadmill)
-  console.log(`Found ${outdoorActivities.length} outdoor runs (${mergedActivities.length - outdoorActivities.length} treadmill runs excluded)`)
+  log.info(`Found ${outdoorActivities.length} outdoor runs (${mergedActivities.length - outdoorActivities.length} treadmill runs excluded)`)
 
   return outdoorActivities
 }
@@ -258,7 +261,7 @@ export function filterActivities(activities, filters = {}) {
  * @returns {Promise<Array>} Array of runs with coordinates
  */
 export async function loadGPXForActivities(activities, onProgress = null) {
-  console.log(`Loading GPX files for ${activities.length} activities...`)
+  log.info(`Loading GPX files for ${activities.length} activities...`)
   const runs = []
 
   // Load GPX files in batches to avoid overwhelming the browser
@@ -281,12 +284,12 @@ export async function loadGPXForActivities(activities, onProgress = null) {
       onProgress(runs.length, activities.length)
     }
 
-    console.log(`Loaded ${runs.length} / ${activities.length} runs`)
+    log.debug(`Loaded ${runs.length} / ${activities.length} runs`)
   }
 
   // Filter out runs with no coordinates
   const validRuns = runs.filter(run => run.coordinates.length > 0)
-  console.log(`Successfully loaded ${validRuns.length} runs with GPS data`)
+  log.info(`Successfully loaded ${validRuns.length} runs with GPS data`)
 
   return validRuns
 }
@@ -307,7 +310,7 @@ export async function loadAllRuns(onProgress = null, filters = null) {
     ? filterActivities(allActivities, filters)
     : allActivities
 
-  console.log(`Loading ${activitiesToLoad.length} of ${allActivities.length} activities after filtering`)
+  log.info(`Loading ${activitiesToLoad.length} of ${allActivities.length} activities after filtering`)
 
   // Load GPX files for filtered activities
   return loadGPXForActivities(activitiesToLoad, onProgress)
