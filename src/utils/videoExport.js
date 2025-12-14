@@ -377,8 +377,9 @@ export class PNGSequenceRecorder {
     this.stopRequested = false
     this.startTime = performance.now()
 
-    // Add CSS class to hide UI elements during recording
-    this.element.classList.add('recording-mode')
+    // Note: We don't add recording-mode class anymore
+    // html2canvas ignoreElements handles excluding controls
+    // Adding CSS classes can cause layout shifts that move the map view
 
     console.log('PNGSequenceRecorder: Started recording', {
       width: this.options.width,
@@ -512,9 +513,6 @@ export class PNGSequenceRecorder {
       console.warn('PNGSequenceRecorder: Not recording')
       return null
     }
-
-    // Remove recording mode CSS class
-    this.element.classList.remove('recording-mode')
 
     const actualDuration = (performance.now() - this.startTime) / 1000
 

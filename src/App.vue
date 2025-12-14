@@ -332,12 +332,14 @@ function renderRuns() {
 
   const runsToRender = filteredRuns.value
 
-  // Calculate bounds to fit all filtered runs
-  const allCoordinates = runsToRender.flatMap(run => run.coordinates)
+  // Calculate bounds to fit all filtered runs (unless recording - user positioned view manually)
+  if (!isRecording.value) {
+    const allCoordinates = runsToRender.flatMap(run => run.coordinates)
 
-  if (allCoordinates.length > 0) {
-    const bounds = L.latLngBounds(allCoordinates)
-    map.fitBounds(bounds, { padding: [50, 50] })
+    if (allCoordinates.length > 0) {
+      const bounds = L.latLngBounds(allCoordinates)
+      map.fitBounds(bounds, { padding: [50, 50] })
+    }
   }
 
   // Draw each run as a polyline
