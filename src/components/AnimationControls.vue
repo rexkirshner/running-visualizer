@@ -46,10 +46,12 @@
         <button
           @click="handleToggleRecording"
           class="record-btn"
-          :class="{ recording: isRecording }"
+          :class="{ recording: isRecording, initializing: isInitializingRecording }"
+          :disabled="isInitializingRecording"
         >
-          <span class="record-indicator"></span>
-          {{ isRecording ? 'Stop Recording' : 'Record' }}
+          <span v-if="isInitializingRecording" class="record-spinner"></span>
+          <span v-else class="record-indicator"></span>
+          {{ isInitializingRecording ? 'Initializing...' : (isRecording ? 'Stop Recording' : 'Record') }}
         </button>
         <span v-if="isRecording" class="recording-status">Recording...</span>
       </div>
@@ -261,6 +263,11 @@ const props = defineProps({
   },
   /** Whether currently recording video */
   isRecording: {
+    type: Boolean,
+    default: false
+  },
+  /** Whether recording is initializing (preparing to start) */
+  isInitializingRecording: {
     type: Boolean,
     default: false
   },
@@ -688,6 +695,31 @@ input[type="range"]:disabled {
   font-size: 13px;
   color: #dc2626;
   font-weight: 500;
+}
+
+/* Initializing state */
+.record-btn.initializing {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #f59e0b;
+  cursor: wait;
+}
+
+.record-btn.initializing:disabled {
+  opacity: 1;
+}
+
+.record-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #f59e0b;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 /* Export Settings */

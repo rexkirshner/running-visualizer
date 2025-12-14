@@ -84,6 +84,7 @@
       :show-runner-dots="showRunnerDots"
       :runner-dot-size="runnerDotSize"
       :is-recording="isRecording"
+      :is-initializing-recording="isInitializingRecording"
       :export-resolution="exportResolution"
       :export-frame-rate="exportFrameRate"
       :show-export-frame="showExportFrame"
@@ -206,6 +207,7 @@ const runnerDotSize = ref(1)
 
 // Recording state
 const isRecording = ref(false)
+const isInitializingRecording = ref(false)
 let pngRecorder = null
 let recordingFrameCount = 0 // Frame counter for frame-based animation during recording
 
@@ -557,26 +559,35 @@ async function handleToggleRecording() {
       return
     }
 
-    // Parse resolution (e.g., '1920x1080' -> width: 1920, height: 1080)
-    const [width, height] = exportResolution.value.split('x').map(Number)
-    const aspectRatio = getAspectRatio(exportResolution.value)
+    // Show initializing state while setting up
+    isInitializingRecording.value = true
 
-    // CRITICAL: Capture export frame dimensions BEFORE recording starts
-    // The overlay will be hidden during recording, so we need to capture now
-    const exportFrame = getExportFrameFromDOM('.export-frame-overlay', aspectRatio)
-    log.debug('Captured export frame for recording:', exportFrame)
+    try {
+      // Parse resolution (e.g., '1920x1080' -> width: 1920, height: 1080)
+      const [width, height] = exportResolution.value.split('x').map(Number)
+      const aspectRatio = getAspectRatio(exportResolution.value)
 
-    pngRecorder = new PNGSequenceRecorder(mapElement, {
-      width,
-      height,
-      frameRate: exportFrameRate.value,
-      targetDuration: animationDuration.value,
-      exportFrame  // Pass pre-captured frame dimensions
-    })
+      // CRITICAL: Capture export frame dimensions BEFORE recording starts
+      // The overlay will be hidden during recording, so we need to capture now
+      const exportFrame = getExportFrameFromDOM('.export-frame-overlay', aspectRatio)
+      log.debug('Captured export frame for recording:', exportFrame)
 
-    await pngRecorder.start()
-    recordingFrameCount = 0 // Reset frame counter
-    isRecording.value = true
+      pngRecorder = new PNGSequenceRecorder(mapElement, {
+        width,
+        height,
+        frameRate: exportFrameRate.value,
+        targetDuration: animationDuration.value,
+        exportFrame  // Pass pre-captured frame dimensions
+      })
+
+      await pngRecorder.start()
+      recordingFrameCount = 0 // Reset frame counter
+      isRecording.value = true
+    } catch (error) {
+      log.error('Failed to initialize recording:', error)
+    } finally {
+      isInitializingRecording.value = false
+    }
   }
 }
 
