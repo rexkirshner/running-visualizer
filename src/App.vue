@@ -120,6 +120,8 @@ import {
   downloadBlob,
   generateFilename
 } from './utils/videoExport'
+import { getExportFrameFromDOM } from './utils/exportFrame'
+import { getAspectRatio } from './utils/constants'
 import DateRangeFilter from './components/DateRangeFilter.vue'
 import LocationFilter from './components/LocationFilter.vue'
 import AnimationControls from './components/AnimationControls.vue'
@@ -527,6 +529,9 @@ function handleShowExportFrameChange(value) {
  * Toggle PNG sequence recording on/off
  * When starting, creates a new PNGSequenceRecorder
  * When stopping, downloads ZIP of PNG frames
+ *
+ * IMPORTANT: Export frame dimensions are captured BEFORE recording starts
+ * to ensure consistent capture even when the overlay is hidden.
  */
 async function handleToggleRecording() {
   if (isRecording.value) {
@@ -546,12 +551,19 @@ async function handleToggleRecording() {
 
     // Parse resolution (e.g., '1920x1080' -> width: 1920, height: 1080)
     const [width, height] = exportResolution.value.split('x').map(Number)
+    const aspectRatio = getAspectRatio(exportResolution.value)
+
+    // CRITICAL: Capture export frame dimensions BEFORE recording starts
+    // The overlay will be hidden during recording, so we need to capture now
+    const exportFrame = getExportFrameFromDOM('.export-frame-overlay', aspectRatio)
+    console.log('Captured export frame for recording:', exportFrame)
 
     pngRecorder = new PNGSequenceRecorder(mapElement, {
       width,
       height,
       frameRate: exportFrameRate.value,
-      targetDuration: animationDuration.value
+      targetDuration: animationDuration.value,
+      exportFrame  // Pass pre-captured frame dimensions
     })
 
     await pngRecorder.start()

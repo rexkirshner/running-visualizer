@@ -11,6 +11,11 @@ import html2canvas from 'html2canvas'
 import { FFmpeg } from '@ffmpeg/ffmpeg'
 import { fetchFile, toBlobURL } from '@ffmpeg/util'
 import JSZip from 'jszip'
+import { createLogger } from './logger.js'
+import { calculateExportFrame, calculateCropRegion } from './exportFrame.js'
+import { PROGRESS_LOG_INTERVAL } from './constants.js'
+
+const log = createLogger('VideoExport')
 
 // Singleton FFmpeg instance (lazy loaded)
 let ffmpegInstance = null
@@ -324,6 +329,10 @@ export class VideoRecorder {
 /**
  * PNGSequenceRecorder class for capturing DOM animations as PNG image sequences
  * Exports a ZIP file containing numbered PNG frames with transparency support
+ *
+ * IMPORTANT: Export frame dimensions must be captured BEFORE recording starts.
+ * Pass the exportFrame option to ensure consistent capture regardless of
+ * whether the export frame overlay is visible during recording.
  */
 export class PNGSequenceRecorder {
   /**
@@ -335,6 +344,11 @@ export class PNGSequenceRecorder {
    * @param {number} [options.height=1080] - Output image height
    * @param {number} [options.frameRate=30] - Target frame rate (frames per second of final video)
    * @param {number} [options.targetDuration=10] - Target duration in seconds
+   * @param {Object} [options.exportFrame] - Pre-captured export frame dimensions
+   * @param {number} options.exportFrame.left - Left position in viewport pixels
+   * @param {number} options.exportFrame.top - Top position in viewport pixels
+   * @param {number} options.exportFrame.width - Frame width in pixels
+   * @param {number} options.exportFrame.height - Frame height in pixels
    */
   constructor(element, options = {}) {
     this.element = element
@@ -344,6 +358,11 @@ export class PNGSequenceRecorder {
       frameRate: options.frameRate || 30,
       targetDuration: options.targetDuration || 10
     }
+
+    // Store pre-captured export frame dimensions
+    // This is critical: frame must be captured BEFORE recording starts
+    // because the overlay may be hidden during recording
+    this.exportFrame = options.exportFrame || null
 
     this.frames = []
     this.isRecording = false
@@ -367,8 +386,16 @@ export class PNGSequenceRecorder {
    */
   async start() {
     if (this.isRecording) {
-      console.warn('PNGSequenceRecorder: Already recording')
+      log.warn('Already recording')
       return
+    }
+
+    // Validate export frame is provided
+    if (!this.exportFrame) {
+      log.warn('No export frame provided - using fallback calculation')
+      // Calculate based on aspect ratio as fallback
+      const aspectRatio = this.options.width / this.options.height
+      this.exportFrame = calculateExportFrame(aspectRatio)
     }
 
     this.frames = []
@@ -381,18 +408,22 @@ export class PNGSequenceRecorder {
     // html2canvas ignoreElements handles excluding controls
     // Adding CSS classes can cause layout shifts that move the map view
 
-    console.log('PNGSequenceRecorder: Started recording', {
-      width: this.options.width,
-      height: this.options.height,
+    log.info('Started recording', {
+      outputWidth: this.options.width,
+      outputHeight: this.options.height,
       frameRate: this.options.frameRate,
       targetDuration: this.options.targetDuration,
-      expectedFrames: this.options.frameRate * this.options.targetDuration
+      expectedFrames: this.options.frameRate * this.options.targetDuration,
+      exportFrame: this.exportFrame
     })
   }
 
   /**
    * Capture the current frame from the DOM element as PNG
    * Call this method on each animation frame you want to capture
+   *
+   * Uses the pre-captured export frame dimensions (from constructor options)
+   * to ensure consistent capture even when the overlay is hidden.
    *
    * @returns {Promise<void>}
    */
@@ -402,39 +433,27 @@ export class PNGSequenceRecorder {
     }
 
     try {
-      // Get the export frame position from the overlay element
-      const exportFrameOverlay = document.querySelector('.export-frame-overlay')
-
-      let frameLeft, frameTop, frameWidth, frameHeight
-      if (exportFrameOverlay) {
-        const rect = exportFrameOverlay.getBoundingClientRect()
-        frameLeft = rect.left
-        frameTop = rect.top
-        frameWidth = rect.width
-        frameHeight = rect.height
-      } else {
-        // Fallback calculation
-        const aspectRatio = this.options.width / this.options.height
-        const vw90 = window.innerWidth * 0.9
-        const vh90_minus_100 = window.innerHeight * 0.9 - 100
-        frameWidth = Math.min(vw90, vh90_minus_100 * aspectRatio)
-        frameHeight = frameWidth / aspectRatio
-        frameLeft = (window.innerWidth - frameWidth) / 2
-        frameTop = (window.innerHeight - frameHeight) / 2
-      }
+      // Use pre-captured export frame dimensions (stored at construction time)
+      // This is the key fix: we don't query DOM for .export-frame-overlay
+      // because it may be hidden during recording
+      const { left: frameLeft, top: frameTop, width: frameWidth, height: frameHeight } = this.exportFrame
 
       // Get the map element position
       const mapRect = this.element.getBoundingClientRect()
 
-      // Calculate crop coordinates: export frame position relative to map element
-      const cropX = frameLeft - mapRect.left
-      const cropY = frameTop - mapRect.top
+      // Calculate crop region using the utility function
+      const crop = calculateCropRegion(this.exportFrame, mapRect)
 
       // Log coordinates for debugging (first frame only)
       if (this.frameCount === 0) {
-        console.log('Export frame:', { frameLeft, frameTop, frameWidth, frameHeight })
-        console.log('Map element:', { left: mapRect.left, top: mapRect.top, width: mapRect.width, height: mapRect.height })
-        console.log('Crop region:', { cropX, cropY, frameWidth, frameHeight })
+        log.debug('Export frame (pre-captured):', this.exportFrame)
+        log.debug('Map element rect:', {
+          left: mapRect.left,
+          top: mapRect.top,
+          width: mapRect.width,
+          height: mapRect.height
+        })
+        log.debug('Crop region:', crop)
       }
 
       // APPROACH: Capture the full map element, then manually crop
@@ -457,7 +476,7 @@ export class PNGSequenceRecorder {
       })
 
       if (this.frameCount === 0) {
-        console.log('Full canvas size:', { width: fullCanvas.width, height: fullCanvas.height })
+        log.debug('Full canvas size:', { width: fullCanvas.width, height: fullCanvas.height })
       }
 
       // Step 2: Create a cropped canvas at the export frame dimensions
@@ -473,8 +492,8 @@ export class PNGSequenceRecorder {
       // drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight)
       croppedCtx.drawImage(
         fullCanvas,
-        cropX, cropY, frameWidth, frameHeight,  // Source region (crop from full canvas)
-        0, 0, frameWidth, frameHeight           // Destination (fill cropped canvas)
+        crop.cropX, crop.cropY, crop.width, crop.height,  // Source region (crop from full canvas)
+        0, 0, frameWidth, frameHeight                      // Destination (fill cropped canvas)
       )
 
       // Step 3: Scale to output resolution
@@ -495,11 +514,11 @@ export class PNGSequenceRecorder {
       this.frameCount++
 
       // Log progress periodically
-      if (this.frameCount % 30 === 0) {
-        console.log(`PNGSequenceRecorder: Captured ${this.frameCount} frames`)
+      if (this.frameCount % PROGRESS_LOG_INTERVAL === 0) {
+        log.info(`Captured ${this.frameCount} frames`)
       }
     } catch (error) {
-      console.error('PNGSequenceRecorder: Frame capture failed', error)
+      log.error('Frame capture failed', error)
     }
   }
 
@@ -510,20 +529,21 @@ export class PNGSequenceRecorder {
    */
   async stop() {
     if (!this.isRecording) {
-      console.warn('PNGSequenceRecorder: Not recording')
+      log.warn('Not recording')
       return null
     }
 
     const actualDuration = (performance.now() - this.startTime) / 1000
 
-    console.log(`PNGSequenceRecorder: Stopped.`)
-    console.log(`  Frames: ${this.frameCount}`)
-    console.log(`  Actual capture duration: ${actualDuration.toFixed(1)}s`)
-    console.log(`  Target playback duration: ${this.options.targetDuration}s`)
-    console.log(`  Frame rate for import: ${this.options.frameRate}fps`)
+    log.info('Stopped recording', {
+      frames: this.frameCount,
+      actualDuration: `${actualDuration.toFixed(1)}s`,
+      targetDuration: `${this.options.targetDuration}s`,
+      frameRate: `${this.options.frameRate}fps`
+    })
 
     // Create ZIP file
-    console.log('PNGSequenceRecorder: Creating ZIP file...')
+    log.info('Creating ZIP file...')
     const zip = new JSZip()
     const folder = zip.folder('frames')
 
@@ -541,17 +561,12 @@ export class PNGSequenceRecorder {
       compressionOptions: { level: 1 } // Fast compression (PNGs are already compressed)
     }, (metadata) => {
       if (metadata.percent % 10 === 0) {
-        console.log(`PNGSequenceRecorder: ZIP progress ${metadata.percent.toFixed(0)}%`)
+        log.debug(`ZIP progress ${metadata.percent.toFixed(0)}%`)
       }
     })
 
-    console.log(`PNGSequenceRecorder: ZIP created (${(zipBlob.size / 1024 / 1024).toFixed(2)} MB)`)
-    console.log(``)
-    console.log(`Import instructions for Final Cut Pro:`)
-    console.log(`  1. Unzip the file`)
-    console.log(`  2. File > Import > Media`)
-    console.log(`  3. Select the 'frames' folder`)
-    console.log(`  4. In import settings, set frame rate to ${this.options.frameRate}fps`)
+    log.info(`ZIP created (${(zipBlob.size / 1024 / 1024).toFixed(2)} MB)`)
+    log.info(`FCP import: Unzip, File > Import > Media, select 'frames', set ${this.options.frameRate}fps`)
 
     // Cleanup
     this.isRecording = false
@@ -562,6 +577,7 @@ export class PNGSequenceRecorder {
     }
     this.frames = []
     this.startTime = null
+    this.exportFrame = null  // Clear stored frame
 
     return result
   }
