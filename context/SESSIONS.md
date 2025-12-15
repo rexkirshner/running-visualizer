@@ -443,3 +443,107 @@ Quick navigation to specific work.
 **Blockers:** None - solution implemented, awaiting user verification
 
 ---
+
+## Session 11 | 2025-12-14 | Sprint 004 - Code Quality
+
+**Duration:** ~1h | **Focus:** Final code review improvements (L5, M6, L2, L7, M2) | **Status:** ✅ Complete
+
+### TL;DR
+Completed Sprint 004 addressing 5 remaining code review items: CSS z-index management with custom properties, tile attribution security documentation, event handler naming standardization, animation loop stale closure fix, and CSV parsing edge case improvements. Total test count increased to 101 (from 86). All 6 commits pushed to GitHub.
+
+### Accomplishments
+
+- ✅ L5: Applied z-index CSS custom properties across 6 components
+- ✅ M6: Documented tile attribution security consideration with JSDoc
+- ✅ L2: Standardized all event handlers to use `handle*` prefix (5 files)
+- ✅ L7: Fixed stale closure in animation loops with captured duration variables
+- ✅ M2: Improved CSV parsing for BOM stripping and escaped quote handling
+- ✅ Added 15 new tests for CSV parsing utilities
+
+### Problem Solved
+
+**Issue:** Code review identified scattered z-index values, inconsistent handler naming, potential stale closure in animation loops, and CSV parsing edge cases.
+
+**Constraints:**
+- Must maintain backward compatibility
+- CSS variables must work in scoped component styles
+- Animation timing must remain consistent
+
+**Approach:**
+1. Created CSS custom properties in App.vue's non-scoped style block
+2. Systematic rename of event handlers with search/replace verification
+3. Captured duration at animation start to prevent mid-animation changes
+4. Enhanced parseCSVLine() for RFC 4180 compliance
+
+**Why this approach:** CSS custom properties cascade to scoped styles. Capturing duration at start ensures consistent animation regardless of settings changes. RFC 4180 format handles most real-world CSV edge cases.
+
+### Decisions
+
+- **CSS variables in App.vue:** Non-scoped :root block allows variables to cascade to all scoped components
+- **handle* prefix:** Consistent naming makes event handlers instantly identifiable
+- **Captured duration pattern:** Prevents subtle timing bugs when user changes duration mid-animation
+
+### Files
+
+**MOD:**
+- `src/App.vue` - Added CSS custom properties, security docs, renamed handlers, captured duration variables
+- `src/components/DateRangeFilter.vue` - CSS variable, renamed handlers
+- `src/components/LocationFilter.vue` - CSS variable, renamed handler
+- `src/components/AnimationControls.vue` - CSS variable, renamed handler
+- `src/components/MapTypeSelector.vue` - CSS variable
+- `src/components/RouteColorSelector.vue` - CSS variable
+- `src/components/SetupPage.vue` - Renamed handlers
+- `src/utils/dataLoader.js` - Added stripBOM(), enhanced parseCSVLine()
+- `src/utils/__tests__/dataLoader.test.js` - Added 15 tests
+
+**NEW:**
+- `docs/development/sprint-004-report.md` - Sprint documentation
+
+### Mental Models
+
+**Current understanding:**
+- CSS custom properties in :root cascade through Vue's scoped styles
+- Animation loops should capture config values at start for consistency
+- CSV parsing needs to handle BOM (Excel exports) and escaped quotes (RFC 4180)
+
+**Key insights:**
+- Non-scoped style block in App.vue is the right place for global CSS variables
+- `charCodeAt(0) === 0xFEFF` detects UTF-8 BOM
+- `""` in CSV represents escaped quote, need lookahead to parse correctly
+
+**Gotchas discovered:**
+- CSS custom properties work in scoped Vue styles via inheritance
+- Animation duration changes mid-animation cause inconsistent timing
+
+### Work In Progress
+
+**Status:** No incomplete work - Sprint 004 fully complete
+
+### TodoWrite State
+
+**Completed:**
+- ✅ Fix L5: Apply z-index CSS custom properties
+- ✅ Fix M6: Document tile attribution security
+- ✅ Fix L2: Standardize event handler naming
+- ✅ Fix L7: Prevent stale closure in animation loops
+- ✅ Fix M2: Improve CSV parsing for edge cases
+
+### Next Session
+
+**Priority:** User testing / new feature requests
+**Blockers:** None
+**Questions:** None - code quality work complete (15/17 review items addressed)
+
+### Git Operations
+
+- **Commits:** 6 commits this session
+- **Pushed:** YES
+- **Approval:** "ok let's push"
+
+### Tests & Build
+
+- **Tests:** 101/101 passing (+15 new)
+- **Build:** Success
+- **Coverage:** Not measured
+
+---
