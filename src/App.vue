@@ -427,6 +427,14 @@ function handleLocationReset() {
 
 /**
  * Tile layer configurations for different map types
+ *
+ * SECURITY NOTE: Attribution strings contain HTML (links to provider sites)
+ * which is rendered into the DOM by Leaflet. This is safe because:
+ * 1. These values are hardcoded in the source code (not user input)
+ * 2. All URLs point to trusted map provider websites
+ *
+ * If custom tile layers from user input are ever supported, the attribution
+ * strings MUST be sanitized to prevent XSS vulnerabilities.
  */
 const tileLayers = {
   streets: {
