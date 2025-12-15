@@ -67,7 +67,7 @@ function resetDates() {
   padding: 16px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
+  z-index: var(--z-index-ui-controls);
   font-family: system-ui, -apple-system, sans-serif;
   min-width: 280px;
 }

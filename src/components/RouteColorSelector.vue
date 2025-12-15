@@ -54,7 +54,7 @@ function handleColorChange(event) {
   padding: 8px 12px;
   border-radius: 6px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
+  z-index: var(--z-index-ui-controls);
   font-family: system-ui, -apple-system, sans-serif;
   display: flex;
   flex-direction: column;

@@ -1018,6 +1018,22 @@ onUnmounted(() => {
 })
 </script>
 
+<!--
+  Global CSS custom properties for z-index layering.
+  These mirror the Z_INDEX constants in constants.js.
+  When updating z-index values, update both this block AND constants.js.
+-->
+<style>
+:root {
+  /* Z-index scale - matches Z_INDEX in utils/constants.js */
+  --z-index-map: 1;
+  --z-index-export-frame-overlay: 999;
+  --z-index-ui-controls: 1000;
+  --z-index-loading: 1001;
+  --z-index-modal: 1100;
+}
+</style>
+
 <style scoped>
 #app {
   height: 100vh;
@@ -1066,7 +1082,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  z-index: 1001;
+  z-index: var(--z-index-loading);
   font-size: 13px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
@@ -1126,7 +1142,7 @@ onUnmounted(() => {
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   text-align: center;
-  z-index: 1000;
+  z-index: var(--z-index-ui-controls);
 }
 
 .spinner {
@@ -1161,7 +1177,7 @@ onUnmounted(() => {
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 14px;
   color: #333;
-  z-index: 1000;
+  z-index: var(--z-index-ui-controls);
 }
 
 /* Export Frame Overlay */
@@ -1173,7 +1189,7 @@ onUnmounted(() => {
   border: 3px dashed #ff6b6b;
   background: transparent;
   pointer-events: none;
-  z-index: 999;
+  z-index: var(--z-index-export-frame-overlay);
   box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.15);
 
   /* Calculate dimensions based on aspect ratio and viewport */
