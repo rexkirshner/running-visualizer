@@ -181,6 +181,7 @@ let animationFrameId = null
 let animationStartTime = null
 let animatedPolyline = null // Currently animated polyline
 let runnerDot = null // Runner dot marker for single-run animation
+let capturedDuration = null // Duration captured at animation start (prevents stale closure)
 
 // Animation state (all filtered runs)
 const isAnimatingAll = ref(false)
@@ -189,6 +190,7 @@ let animationFrameIdAll = null
 let animationStartTimeAll = null
 let animatedPolylines = [] // Multiple animated polylines
 let runnerDotsAll = [] // Runner dot markers for multi-run animation
+let capturedDurationAll = null // Duration captured at animation start (prevents stale closure)
 
 let map = null
 let polylines = [] // Store polyline references for clearing
@@ -674,7 +676,9 @@ function handlePlay() {
   if (!selectedRunId.value) return
 
   isAnimating.value = true
-  animationStartTime = performance.now() - (animationProgress.value / 100 * animationDuration.value * 1000)
+  // Capture duration at start to prevent stale closure issues if user changes duration mid-animation
+  capturedDuration = animationDuration.value
+  animationStartTime = performance.now() - (animationProgress.value / 100 * capturedDuration * 1000)
 
   animateRun()
 }
@@ -733,7 +737,9 @@ function handlePlayAll() {
   }
 
   isAnimatingAll.value = true
-  animationStartTimeAll = performance.now() - (animationProgressAll.value / 100 * animationDuration.value * 1000)
+  // Capture duration at start to prevent stale closure issues if user changes duration mid-animation
+  capturedDurationAll = animationDuration.value
+  animationStartTimeAll = performance.now() - (animationProgressAll.value / 100 * capturedDurationAll * 1000)
 
   // Clear static routes
   renderRuns()
@@ -809,14 +815,16 @@ async function animateAllRuns() {
   let progress
   if (isRecording.value) {
     // Frame-based progress when recording (ensures consistent frame capture)
-    const totalFrames = animationDuration.value * exportFrameRate.value
+    // Use capturedDurationAll to prevent stale closure if duration changes mid-recording
+    const totalFrames = capturedDurationAll * exportFrameRate.value
     progress = Math.min((recordingFrameCount / totalFrames) * 100, 100)
     recordingFrameCount++
   } else {
     // Time-based progress for normal playback
+    // Use capturedDurationAll to prevent stale closure if duration changes mid-animation
     const currentTime = performance.now()
     const elapsed = currentTime - animationStartTimeAll
-    progress = Math.min((elapsed / (animationDuration.value * 1000)) * 100, 100)
+    progress = Math.min((elapsed / (capturedDurationAll * 1000)) * 100, 100)
   }
 
   animationProgressAll.value = progress
@@ -915,14 +923,16 @@ async function animateRun() {
   let progress
   if (isRecording.value) {
     // Frame-based progress when recording (ensures consistent frame capture)
-    const totalFrames = animationDuration.value * exportFrameRate.value
+    // Use capturedDuration to prevent stale closure if duration changes mid-recording
+    const totalFrames = capturedDuration * exportFrameRate.value
     progress = Math.min((recordingFrameCount / totalFrames) * 100, 100)
     recordingFrameCount++
   } else {
     // Time-based progress for normal playback
+    // Use capturedDuration to prevent stale closure if duration changes mid-animation
     const currentTime = performance.now()
     const elapsed = currentTime - animationStartTime
-    progress = Math.min((elapsed / (animationDuration.value * 1000)) * 100, 100)
+    progress = Math.min((elapsed / (capturedDuration * 1000)) * 100, 100)
   }
 
   animationProgress.value = progress
