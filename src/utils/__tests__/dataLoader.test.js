@@ -3,7 +3,7 @@
  * Covers filterActivities function, date parsing, and GPX parsing
  */
 import { describe, it, expect } from 'vitest'
-import { filterActivities, parseGPX } from '../dataLoader.js'
+import { filterActivities, parseGPX, stripBOM, parseCSVLine } from '../dataLoader.js'
 
 // Sample test data
 const sampleActivities = [
@@ -337,5 +337,83 @@ describe('parseGPX', () => {
 
     const result = parseGPX(gpxXML)
     expect(result).toHaveLength(2)
+  })
+})
+
+describe('stripBOM', () => {
+  it('should remove UTF-8 BOM from string', () => {
+    const withBOM = '\uFEFFHello World'
+    expect(stripBOM(withBOM)).toBe('Hello World')
+  })
+
+  it('should return unchanged string when no BOM present', () => {
+    const noBOM = 'Hello World'
+    expect(stripBOM(noBOM)).toBe('Hello World')
+  })
+
+  it('should handle empty string', () => {
+    expect(stripBOM('')).toBe('')
+  })
+
+  it('should only remove BOM from start', () => {
+    const bomInMiddle = 'Hello\uFEFFWorld'
+    expect(stripBOM(bomInMiddle)).toBe('Hello\uFEFFWorld')
+  })
+})
+
+describe('parseCSVLine', () => {
+  it('should parse simple unquoted fields', () => {
+    const result = parseCSVLine('a,b,c')
+    expect(result).toEqual(['a', 'b', 'c'])
+  })
+
+  it('should parse quoted fields', () => {
+    const result = parseCSVLine('"hello","world"')
+    expect(result).toEqual(['hello', 'world'])
+  })
+
+  it('should handle comma inside quoted field', () => {
+    const result = parseCSVLine('"hello, world",test')
+    expect(result).toEqual(['hello, world', 'test'])
+  })
+
+  it('should handle escaped quotes (doubled)', () => {
+    const result = parseCSVLine('"He said ""hello""",test')
+    expect(result).toEqual(['He said "hello"', 'test'])
+  })
+
+  it('should handle mixed quoted and unquoted fields', () => {
+    const result = parseCSVLine('unquoted,"quoted field",another')
+    expect(result).toEqual(['unquoted', 'quoted field', 'another'])
+  })
+
+  it('should trim whitespace from unquoted fields', () => {
+    const result = parseCSVLine('  a  ,  b  ,  c  ')
+    expect(result).toEqual(['a', 'b', 'c'])
+  })
+
+  it('should handle empty fields', () => {
+    const result = parseCSVLine('a,,c')
+    expect(result).toEqual(['a', '', 'c'])
+  })
+
+  it('should handle empty quoted fields', () => {
+    const result = parseCSVLine('"",a,""')
+    expect(result).toEqual(['', 'a', ''])
+  })
+
+  it('should handle single field', () => {
+    const result = parseCSVLine('single')
+    expect(result).toEqual(['single'])
+  })
+
+  it('should handle empty string', () => {
+    const result = parseCSVLine('')
+    expect(result).toEqual([''])
+  })
+
+  it('should handle complex escaped quotes', () => {
+    const result = parseCSVLine('"a ""b"" c",d')
+    expect(result).toEqual(['a "b" c', 'd'])
   })
 })

@@ -9,15 +9,32 @@ import { createLogger } from './logger.js'
 const log = createLogger('DataLoader')
 
 /**
+ * Strip BOM (Byte Order Mark) from string if present
+ * Common in files exported from Excel and other tools
+ * @param {string} str - String that may have BOM
+ * @returns {string} String without BOM
+ */
+export function stripBOM(str) {
+  // UTF-8 BOM: EF BB BF (U+FEFF)
+  if (str.charCodeAt(0) === 0xFEFF) {
+    return str.slice(1)
+  }
+  return str
+}
+
+/**
  * Load and parse the activities CSV file
  * @returns {Promise<Array>} Array of activity objects with metadata
  */
 export async function loadActivitiesCSV() {
   const response = await fetch('/data/activities.csv')
-  const csvText = await response.text()
+  let csvText = await response.text()
+
+  // Strip BOM if present (common in Excel exports)
+  csvText = stripBOM(csvText)
 
   const lines = csvText.split('\n')
-  const headers = lines[0].split(',')
+  const headers = parseCSVLine(lines[0]) // Parse headers properly too
 
   const activities = []
 
@@ -48,28 +65,59 @@ export async function loadActivitiesCSV() {
 }
 
 /**
- * Parse a CSV line handling quoted fields
+ * Parse a CSV line handling quoted fields and escaped quotes
+ *
+ * Handles RFC 4180 CSV format:
+ * - Fields may be enclosed in double quotes
+ * - Double quotes within quoted fields are escaped as ""
+ * - Commas within quoted fields are literal
+ *
+ * LIMITATION: Multi-line fields (newlines within quotes) are not supported
+ * as lines are pre-split. This is acceptable for Strava export data.
+ *
  * @param {string} line - CSV line to parse
  * @returns {Array<string>} Array of field values
  */
-function parseCSVLine(line) {
+export function parseCSVLine(line) {
   const result = []
   let current = ''
   let inQuotes = false
+  let i = 0
 
-  for (let i = 0; i < line.length; i++) {
+  while (i < line.length) {
     const char = line[i]
 
-    if (char === '"') {
-      inQuotes = !inQuotes
-    } else if (char === ',' && !inQuotes) {
-      result.push(current.trim())
-      current = ''
+    if (inQuotes) {
+      if (char === '"') {
+        // Check if this is an escaped quote ("") or end of quoted field
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          // Escaped quote - add single quote to result and skip both chars
+          current += '"'
+          i += 2
+          continue
+        } else {
+          // End of quoted field
+          inQuotes = false
+        }
+      } else {
+        current += char
+      }
     } else {
-      current += char
+      if (char === '"') {
+        // Start of quoted field
+        inQuotes = true
+      } else if (char === ',') {
+        // Field separator
+        result.push(current.trim())
+        current = ''
+      } else {
+        current += char
+      }
     }
+    i++
   }
 
+  // Add the last field
   result.push(current.trim())
   return result
 }
@@ -81,7 +129,10 @@ function parseCSVLine(line) {
  */
 export async function loadLocationsCSV() {
   const response = await fetch('/data/activities-location.csv')
-  const csvText = await response.text()
+  let csvText = await response.text()
+
+  // Strip BOM if present (common in Excel exports)
+  csvText = stripBOM(csvText)
 
   const lines = csvText.split('\n')
   const locations = new Map()
