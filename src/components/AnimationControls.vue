@@ -2,7 +2,7 @@
   <div class="animation-controls">
     <div class="controls-header">
       <h3>Route Animation</h3>
-      <button @click="toggleExpanded" class="toggle-btn">
+      <button @click="handleToggleExpanded" class="toggle-btn">
         {{ isExpanded ? '−' : '+' }}
       </button>
     </div>
@@ -307,7 +307,7 @@ const emit = defineEmits([
 
 const isExpanded = ref(true)
 
-function toggleExpanded() {
+function handleToggleExpanded() {
   isExpanded.value = !isExpanded.value
 }
 

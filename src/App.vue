@@ -25,7 +25,7 @@
         <span class="failed-loads-text">
           {{ failedLoads.length }} run{{ failedLoads.length === 1 ? '' : 's' }} failed to load
         </span>
-        <button class="failed-loads-details" @click="showFailedLoadsDetails">Details</button>
+        <button class="failed-loads-details" @click="handleShowFailedLoadsDetails">Details</button>
         <button class="failed-loads-dismiss" @click="failedLoads = []">&times;</button>
       </div>
 
@@ -267,7 +267,7 @@ const filteredRuns = computed(() => {
 /**
  * Show details about failed GPX file loads in an alert
  */
-function showFailedLoadsDetails() {
+function handleShowFailedLoadsDetails() {
   const details = failedLoads.value
     .slice(0, 10) // Limit to first 10 to avoid huge alert
     .map(f => `- ${f.name || f.filename}: ${f.error}`)

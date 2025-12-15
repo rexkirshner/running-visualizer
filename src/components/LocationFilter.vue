@@ -2,7 +2,7 @@
   <div class="location-filter">
     <div class="filter-header">
       <h3>Filter by Location</h3>
-      <button @click="resetFilters" class="reset-btn">Reset</button>
+      <button @click="handleReset" class="reset-btn">Reset</button>
     </div>
 
     <div class="filter-inputs">
@@ -115,7 +115,7 @@ function handleCountryChange(event) {
   emit('update:selectedCountry', event.target.value)
 }
 
-function resetFilters() {
+function handleReset() {
   emit('reset')
 }
 </script>

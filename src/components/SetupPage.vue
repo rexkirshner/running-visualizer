@@ -14,7 +14,7 @@
         <div class="filter-section presets-section">
           <h3>Quick Presets</h3>
           <div class="presets">
-            <button @click="applyPreset2025MDR" class="preset-btn">
+            <button @click="handleApplyPreset2025MDR" class="preset-btn">
               2025 Home - MDR
             </button>
           </div>
@@ -79,8 +79,8 @@
 
         <!-- Action Buttons -->
         <div class="actions">
-          <button @click="resetFilters" class="reset-btn">Reset Filters</button>
-          <button @click="loadRuns" class="load-btn" :disabled="matchCount === 0">
+          <button @click="handleReset" class="reset-btn">Reset Filters</button>
+          <button @click="handleLoadRuns" class="load-btn" :disabled="matchCount === 0">
             Load {{ matchCount }} Runs
           </button>
         </div>
@@ -169,7 +169,7 @@ function updateMatchCount() {
 }
 
 // Reset all filters
-function resetFilters() {
+function handleReset() {
   startDate.value = ''
   endDate.value = ''
   selectedCity.value = ''
@@ -178,7 +178,7 @@ function resetFilters() {
 }
 
 // Apply preset: 2025 Home - MDR
-function applyPreset2025MDR() {
+function handleApplyPreset2025MDR() {
   startDate.value = '2025-01-01'
   endDate.value = '2025-12-31'
   selectedState.value = 'Home - MDR'
@@ -187,7 +187,7 @@ function applyPreset2025MDR() {
 }
 
 // Load runs with current filters
-function loadRuns() {
+function handleLoadRuns() {
   const filters = getCurrentFilters()
   emit('load', Object.keys(filters).length > 0 ? filters : null)
 }

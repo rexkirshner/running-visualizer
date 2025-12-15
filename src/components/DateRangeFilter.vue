@@ -2,7 +2,7 @@
   <div class="date-range-filter">
     <div class="filter-header">
       <h3>Filter by Date</h3>
-      <button @click="resetDates" class="reset-btn">Reset</button>
+      <button @click="handleReset" class="reset-btn">Reset</button>
     </div>
     <div class="filter-inputs">
       <div class="input-group">
@@ -11,7 +11,7 @@
           id="start-date"
           type="date"
           :value="startDate"
-          @change="updateStartDate"
+          @change="handleStartDateChange"
           :max="endDate"
         />
       </div>
@@ -21,7 +21,7 @@
           id="end-date"
           type="date"
           :value="endDate"
-          @change="updateEndDate"
+          @change="handleEndDateChange"
           :min="startDate"
         />
       </div>
@@ -45,15 +45,15 @@ const props = defineProps({
 
 const emit = defineEmits(['update:startDate', 'update:endDate', 'reset'])
 
-function updateStartDate(event) {
+function handleStartDateChange(event) {
   emit('update:startDate', event.target.value)
 }
 
-function updateEndDate(event) {
+function handleEndDateChange(event) {
   emit('update:endDate', event.target.value)
 }
 
-function resetDates() {
+function handleReset() {
   emit('reset')
 }
 </script>
