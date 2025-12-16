@@ -919,6 +919,7 @@ async function animateAllRuns() {
   // Update recorder state before capturing frame
   if (isRecording.value && pngRecorder) {
     // Build activities array with current colors
+    // Hide markers on final frame (progress = 100) for clean finish
     const activities = filteredRuns.value.map((run, index) => ({
       activity: {
         id: run.id,
@@ -926,7 +927,7 @@ async function animateAllRuns() {
         coordinates: run.coordinates
       },
       color: getRouteColor(index),
-      showMarker: showRunnerDots.value
+      showMarker: showRunnerDots.value && progress < 100
     }))
 
     pngRecorder.updateState({
