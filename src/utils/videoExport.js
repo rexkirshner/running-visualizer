@@ -14,6 +14,7 @@ import JSZip from 'jszip'
 import { createLogger } from './logger.js'
 import { calculateExportFrame, calculateCropRegion } from './exportFrame.js'
 import { PROGRESS_LOG_INTERVAL, validateExportSettings } from './constants.js'
+import { renderExportFrame } from './canvasRenderer.js'
 
 const log = createLogger('VideoExport')
 
@@ -456,6 +457,14 @@ export class PNGSequenceRecorder {
    * @param {number} options.exportFrame.top - Top position in viewport pixels
    * @param {number} options.exportFrame.width - Frame width in pixels
    * @param {number} options.exportFrame.height - Frame height in pixels
+   * @param {boolean} [options.useCanvasRendering=true] - Use direct canvas rendering instead of html2canvas
+   * @param {L.Map} [options.map] - Leaflet map instance (required if useCanvasRendering is true)
+   * @param {Object} [options.animationState] - Initial animation state for canvas rendering
+   * @param {Object} options.animationState.currentActivity - Activity being animated
+   * @param {number} options.animationState.animationProgress - Progress percentage 0-100
+   * @param {boolean} options.animationState.showStaticRoutes - Whether to show background routes
+   * @param {Array} options.animationState.staticActivities - All activities for static rendering
+   * @param {string} options.animationState.selectedColor - Color for current route
    */
   constructor(element, options = {}) {
     this.element = element
@@ -483,6 +492,17 @@ export class PNGSequenceRecorder {
     // because the overlay may be hidden during recording
     this.exportFrame = options.exportFrame || null
 
+    // Canvas rendering options (new approach - replaces html2canvas)
+    this.useCanvasRendering = options.useCanvasRendering !== undefined ? options.useCanvasRendering : true
+    this.map = options.map || null
+    this.animationState = options.animationState || null
+
+    // Validate canvas rendering requirements
+    if (this.useCanvasRendering && !this.map) {
+      log.warn('Canvas rendering enabled but no map instance provided - falling back to html2canvas')
+      this.useCanvasRendering = false
+    }
+
     this.frames = []
     this.isRecording = false
     this.frameCount = 0
@@ -497,6 +517,26 @@ export class PNGSequenceRecorder {
    */
   requestStop() {
     this.stopRequested = true
+  }
+
+  /**
+   * Update animation state during recording
+   * Call this before each captureFrame() to ensure current animation state is captured
+   *
+   * @param {Object} state - Updated animation state
+   * @param {Object} state.currentActivity - Activity being animated
+   * @param {number} state.animationProgress - Progress percentage 0-100
+   * @param {boolean} [state.showStaticRoutes] - Whether to show background routes
+   * @param {Array} [state.staticActivities] - All activities for static rendering
+   * @param {string} [state.selectedColor] - Color for current route
+   */
+  updateState(state) {
+    if (!this.animationState) {
+      this.animationState = {}
+    }
+
+    // Update only provided fields
+    Object.assign(this.animationState, state)
   }
 
   /**
@@ -573,7 +613,52 @@ export class PNGSequenceRecorder {
           height: mapRect.height
         })
         log.debug('Crop region:', crop)
+        log.debug('Using canvas rendering:', this.useCanvasRendering)
       }
+
+      // ===========================================
+      // CANVAS RENDERING PATH (new approach)
+      // ===========================================
+      if (this.useCanvasRendering && this.map && this.animationState) {
+        // Create canvas at export frame dimensions
+        const canvas = document.createElement('canvas')
+        canvas.width = frameWidth
+        canvas.height = frameHeight
+
+        // Render current animation frame directly to canvas
+        renderExportFrame(canvas, this.exportFrame, this.map, this.animationState)
+
+        // Scale to output resolution if needed
+        let outputCanvas = canvas
+        if (canvas.width !== this.options.width || canvas.height !== this.options.height) {
+          outputCanvas = document.createElement('canvas')
+          outputCanvas.width = this.options.width
+          outputCanvas.height = this.options.height
+          const ctx = outputCanvas.getContext('2d')
+          ctx.clearRect(0, 0, outputCanvas.width, outputCanvas.height)
+          ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, outputCanvas.width, outputCanvas.height)
+        }
+
+        // Convert to blob
+        const blob = await new Promise(resolve => {
+          outputCanvas.toBlob(resolve, 'image/png')
+        })
+
+        // Store frame
+        this.frames.push(blob)
+        this.frameCount++
+
+        // Log progress
+        if (this.frameCount % PROGRESS_LOG_INTERVAL === 0) {
+          log.debug(`Captured frame ${this.frameCount} (canvas rendering)`)
+        }
+
+        return
+      }
+
+      // ===========================================
+      // HTML2CANVAS FALLBACK PATH (legacy approach)
+      // ===========================================
 
       // APPROACH: Capture the full map element, then manually crop
       // This avoids html2canvas issues with scrollX/scrollY and CSS transforms
