@@ -126,6 +126,24 @@
         </div>
       </div>
 
+      <!-- Route Line Width Settings -->
+      <div class="control-group route-line-width-settings">
+        <div class="size-slider">
+          <label for="line-width-slider">
+            Line width: {{ routeLineWidth }}px
+          </label>
+          <input
+            id="line-width-slider"
+            type="range"
+            :min="lineWidthMin"
+            :max="lineWidthMax"
+            step="1"
+            :value="routeLineWidth"
+            @input="handleRouteLineWidthChange"
+          />
+        </div>
+      </div>
+
       <!-- Play All Filtered Button -->
       <div v-if="!selectedRunId && runs.length > 0" class="control-group">
         <button
@@ -207,13 +225,15 @@
  */
 
 import { ref, computed } from 'vue'
-import { ANIMATION_DURATION, RUNNER_DOT_SIZE } from '../utils/constants'
+import { ANIMATION_DURATION, RUNNER_DOT_SIZE, ROUTE_LINE_WIDTH } from '../utils/constants'
 
 // Expose constants for template binding
 const durationMin = computed(() => ANIMATION_DURATION.min)
 const durationMax = computed(() => ANIMATION_DURATION.max)
 const dotSizeMin = computed(() => RUNNER_DOT_SIZE.min)
 const dotSizeMax = computed(() => RUNNER_DOT_SIZE.max)
+const lineWidthMin = computed(() => ROUTE_LINE_WIDTH.min)
+const lineWidthMax = computed(() => ROUTE_LINE_WIDTH.max)
 
 const props = defineProps({
   /** Array of available runs to animate */
@@ -260,6 +280,11 @@ const props = defineProps({
   runnerDotSize: {
     type: Number,
     default: 6
+  },
+  /** Width of route lines in pixels */
+  routeLineWidth: {
+    type: Number,
+    default: 4
   },
   /** Whether currently recording video */
   isRecording: {
@@ -349,6 +374,10 @@ function handleShowRunnerDotsChange(event) {
 
 function handleRunnerDotSizeChange(event) {
   emit('update:runnerDotSize', parseInt(event.target.value))
+}
+
+function handleRouteLineWidthChange(event) {
+  emit('update:routeLineWidth', parseInt(event.target.value))
 }
 
 function handleToggleRecording() {

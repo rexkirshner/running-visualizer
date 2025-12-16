@@ -59,6 +59,15 @@ export const RUNNER_DOT_SIZE = {
   default: 1
 }
 
+/**
+ * Route line width range in pixels
+ */
+export const ROUTE_LINE_WIDTH = {
+  min: 1,
+  max: 10,
+  default: 4
+}
+
 // =============================================================================
 // Export Configuration
 // =============================================================================

@@ -279,6 +279,7 @@ export function addDebugOverlay(ctx, coordinates, exportFrame, map, style = {}) 
  * @param {string} state.activities[].color - Color for this activity
  * @param {boolean} state.activities[].showMarker - Whether to show position marker
  * @param {number} state.animationProgress - Progress percentage 0-100
+ * @param {number} state.routeLineWidth - Route line width in pixels (default: 4)
  * @param {boolean} state.debug - Whether to add debug overlay (default: false)
  * @param {string} state.backgroundColor - Background color (default: '#F5F5F5')
  * @returns {HTMLCanvasElement} The rendered canvas
@@ -290,6 +291,7 @@ export function renderMultiRunFrame(canvas, exportFrame, map, state) {
   const {
     activities = [],
     animationProgress = 0,
+    routeLineWidth = 4,
     debug = false,
     backgroundColor = '#F5F5F5'
   } = state
@@ -315,7 +317,7 @@ export function renderMultiRunFrame(canvas, exportFrame, map, state) {
         // Draw route
         drawRoute(ctx, visibleCoords, exportFrame, map, {
           color,
-          width: 4,
+          width: routeLineWidth,
           opacity: 1.0
         })
 

@@ -83,6 +83,7 @@
       :progress-all="animationProgressAll"
       :show-runner-dots="showRunnerDots"
       :runner-dot-size="runnerDotSize"
+      :route-line-width="routeLineWidth"
       :is-recording="isRecording"
       :is-initializing-recording="isInitializingRecording"
       :export-resolution="exportResolution"
@@ -93,6 +94,7 @@
       @update:show-export-frame="handleShowExportFrameChange"
       @update:show-runner-dots="handleShowRunnerDotsChange"
       @update:runner-dot-size="handleRunnerDotSizeChange"
+      @update:route-line-width="handleRouteLineWidthChange"
       @update:export-resolution="handleExportResolutionChange"
       @update:export-frame-rate="handleExportFrameRateChange"
       @play="handlePlay"
@@ -206,6 +208,9 @@ const singleColor = ref(DEFAULT_ROUTE_COLOR)
 // Runner dot state
 const showRunnerDots = ref(true)
 const runnerDotSize = ref(1)
+
+// Route line width state
+const routeLineWidth = ref(4) // Default: 4px
 
 // Recording state
 const isRecording = ref(false)
@@ -523,6 +528,10 @@ function handleShowRunnerDotsChange(value) {
 
 function handleRunnerDotSizeChange(value) {
   runnerDotSize.value = value
+}
+
+function handleRouteLineWidthChange(value) {
+  routeLineWidth.value = value
 }
 
 // ============================================
@@ -932,7 +941,8 @@ async function animateAllRuns() {
 
     pngRecorder.updateState({
       activities,
-      animationProgress: progress
+      animationProgress: progress,
+      routeLineWidth: routeLineWidth.value
     })
 
     // Capture frame (await to ensure frame is captured before continuing)
