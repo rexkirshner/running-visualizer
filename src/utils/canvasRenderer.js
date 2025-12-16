@@ -131,40 +131,27 @@ export function drawRoute(ctx, coordinates, exportFrame, map, style = {}) {
 /**
  * Draw the current position marker (animated point on route)
  *
- * Renders a two-layer circle marker:
- * - Outer circle: White with black border
- * - Inner circle: Route color
+ * Renders a simple colored circle marker matching the browser display style.
  *
  * @param {CanvasRenderingContext2D} ctx - Canvas rendering context
  * @param {{lat: number, lng: number}} position - Current position coordinate
  * @param {Object} exportFrame - Export frame dimensions
  * @param {L.Map} map - Leaflet map instance
  * @param {Object} style - Marker style options
- * @param {string} style.color - Inner circle color (default: '#FF0000')
- * @param {number} style.outerRadius - Outer circle radius (default: 8)
- * @param {number} style.innerRadius - Inner circle radius (default: 5)
+ * @param {string} style.color - Circle color (default: '#FF0000')
+ * @param {number} style.radius - Circle radius (default: 6)
  */
 export function drawCurrentMarker(ctx, position, exportFrame, map, style = {}) {
   const {
     color = '#FF0000',
-    outerRadius = 8,
-    innerRadius = 5
+    radius = 6
   } = style
 
   const point = latLngToExportCanvas(position, exportFrame, map)
 
-  // Draw outer circle (white with black border)
+  // Draw simple colored circle (matches browser display)
   ctx.beginPath()
-  ctx.arc(point.x, point.y, outerRadius, 0, 2 * Math.PI)
-  ctx.fillStyle = '#FFFFFF'
-  ctx.fill()
-  ctx.strokeStyle = '#000000'
-  ctx.lineWidth = 2
-  ctx.stroke()
-
-  // Draw inner circle (route color)
-  ctx.beginPath()
-  ctx.arc(point.x, point.y, innerRadius, 0, 2 * Math.PI)
+  ctx.arc(point.x, point.y, radius, 0, 2 * Math.PI)
   ctx.fillStyle = color
   ctx.fill()
 }

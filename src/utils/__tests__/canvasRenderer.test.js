@@ -226,7 +226,7 @@ describe('canvasRenderer', () => {
   })
 
   describe('drawCurrentMarker', () => {
-    it('should draw two-layer circle marker', () => {
+    it('should draw simple colored circle marker', () => {
       const ctx = createMockCanvasContext()
       const map = createMockMap()
       const exportFrame = { left: 100, top: 100, width: 800, height: 600 }
@@ -234,15 +234,15 @@ describe('canvasRenderer', () => {
 
       drawCurrentMarker(ctx, position, exportFrame, map, { color: '#FF0000' })
 
-      // Should draw two circles
-      expect(ctx.arc).toHaveBeenCalledTimes(2)
-      expect(ctx.fill).toHaveBeenCalledTimes(2)
+      // Should draw single circle (matching browser display)
+      expect(ctx.arc).toHaveBeenCalledTimes(1)
+      expect(ctx.fill).toHaveBeenCalledTimes(1)
 
-      // Should stroke outer circle
-      expect(ctx.stroke).toHaveBeenCalledTimes(1)
+      // Should not stroke (simple filled circle)
+      expect(ctx.stroke).not.toHaveBeenCalled()
     })
 
-    it('should use custom radii', () => {
+    it('should use custom radius', () => {
       const ctx = createMockCanvasContext()
       const map = createMockMap()
       const exportFrame = { left: 100, top: 100, width: 800, height: 600 }
@@ -250,14 +250,12 @@ describe('canvasRenderer', () => {
 
       drawCurrentMarker(ctx, position, exportFrame, map, {
         color: '#00FF00',
-        outerRadius: 10,
-        innerRadius: 6
+        radius: 10
       })
 
-      // Verify arc calls with custom radii
+      // Verify arc call with custom radius
       const arcCalls = ctx.arc.mock.calls
-      expect(arcCalls[0][2]).toBe(10) // Outer radius
-      expect(arcCalls[1][2]).toBe(6)  // Inner radius
+      expect(arcCalls[0][2]).toBe(10) // Custom radius
     })
   })
 
