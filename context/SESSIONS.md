@@ -547,3 +547,73 @@ Completed Sprint 004 addressing 5 remaining code review items: CSS z-index manag
 - **Coverage:** Not measured
 
 ---
+
+## Session 14 | 2025-12-16 | Sprint 005 - Canvas Rendering Fix
+
+**Status:** In Progress - User Testing
+**Duration:** ~30 minutes
+**Focus:** Fix animation stopping condition for multi-run exports
+
+### What We Did
+
+**Problem Identified:**
+- User reported multi-run exports ending 1-2 frames early
+- Last frame showed routes not fully drawn to 100%
+- Issue: `progress < 100` condition stops before capturing final frame
+
+**Solution Implemented:**
+- Modified both `animateAllRuns()` and `animateRun()` in App.vue
+- Changed stopping condition from `if (progress < 100)` to:
+  ```javascript
+  const shouldContinue = isRecording.value
+    ? (progress <= 100 && recordingFrameCount <= targetFrames)
+    : (progress < 100)
+  ```
+- When recording: Continue until 100% frame is captured
+- Normal playback: Stop before extra frame (original behavior)
+
+**Files Modified:**
+- `src/App.vue` (lines 943, 1076)
+
+**Commit:**
+- `0522cb2` - Fix animation stopping condition to capture final 100% frame
+
+### Context
+
+This is a continuation of Sprint 005 (Sessions 12-13) which implemented:
+- Canvas rendering module (canvasRenderer.js)
+- Multi-run rendering support
+- Integration with PNGSequenceRecorder
+- 32 unit tests
+
+Sprint 005 implementation was successful - routes render correctly with canvas rendering. This session fixes the final frame capture issue.
+
+### Mental Models
+
+**Key insights:**
+- Animation loop termination must account for inclusive final frame
+- Recording needs different stopping logic than normal playback
+- Frame counting prevents overrun when using <= operator
+
+### Work In Progress
+
+**Status:** Fix complete - awaiting user testing
+
+**Next:** User needs to test multi-run export to verify:
+- Final frame shows routes at 100% completion
+- No extra frames captured beyond target duration
+- All routes fully drawn in last frame
+
+### Git Operations
+
+- **Commits:** 1 commit this session
+- **Pushed:** NO
+- **Approval:** Not yet requested
+
+### Tests & Build
+
+- **Tests:** 133/133 passing (unchanged from Sprint 005)
+- **Build:** Success
+- **Coverage:** Not measured
+
+---
