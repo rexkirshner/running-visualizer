@@ -108,6 +108,11 @@ function convertTransformsToPosition(mapElement) {
     }
   })
 
+  // Force a reflow to ensure browser has updated the layout
+  if (paneData.length > 0) {
+    mapElement.offsetHeight // Reading this property forces a reflow
+  }
+
   return paneData
 }
 
@@ -573,11 +578,49 @@ export class PNGSequenceRecorder {
       // APPROACH: Capture the full map element, then manually crop
       // This avoids html2canvas issues with scrollX/scrollY and CSS transforms
 
-      // CRITICAL FIX: Convert Leaflet CSS transforms to left/top positioning
-      // before capture, since html2canvas doesn't handle transforms correctly
-      const paneData = convertTransformsToPosition(this.element)
+      // CRITICAL FIX: html2canvas doesn't handle CSS transforms OR left/top positioning correctly
+      // Solution: Keep transforms as-is, but adjust crop region to account for the transform offset
+
+      // Find the main pane transform offset (Leaflet uses this to position map tiles)
+      const mapPane = this.element.querySelector('.leaflet-map-pane')
+      let paneOffsetX = 0
+      let paneOffsetY = 0
+
+      if (mapPane) {
+        const computedStyle = window.getComputedStyle(mapPane)
+        const transform = computedStyle.transform
+
+        if (transform && transform !== 'none') {
+          const translation = parseTransformMatrix(transform)
+          if (translation) {
+            paneOffsetX = translation.x
+            paneOffsetY = translation.y
+
+            if (this.frameCount === 0) {
+              log.debug(`Map pane offset: (${paneOffsetX}, ${paneOffsetY})`)
+            }
+          }
+        }
+      }
+
+      // Adjust crop region to account for pane offset
+      // The pane is visually offset by (paneOffsetX, paneOffsetY) due to transform
+      // But html2canvas captures it as if it's at (0, 0)
+      // So we need to shift our crop region by the negative of the pane offset
+      const adjustedCrop = {
+        cropX: crop.cropX - paneOffsetX,
+        cropY: crop.cropY - paneOffsetY,
+        width: crop.width,
+        height: crop.height
+      }
+
+      if (this.frameCount === 0) {
+        log.debug('Original crop region:', crop)
+        log.debug('Adjusted crop region (accounting for pane offset):', adjustedCrop)
+      }
 
       // Step 1: Capture the entire map element at its natural size
+      // Keep transforms as-is - don't try to convert them
       const fullCanvas = await html2canvas(this.element, {
         backgroundColor: null,
         logging: false,
@@ -592,9 +635,6 @@ export class PNGSequenceRecorder {
           )
         }
       })
-
-      // Restore transforms immediately after capture
-      restoreTransforms(paneData)
 
       if (this.frameCount === 0) {
         log.debug('Full canvas size:', { width: fullCanvas.width, height: fullCanvas.height })
@@ -611,9 +651,10 @@ export class PNGSequenceRecorder {
 
       // Draw the cropped region from the full canvas
       // drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight)
+      // Use the adjusted crop region (accounting for Leaflet pane transform offset)
       croppedCtx.drawImage(
         fullCanvas,
-        crop.cropX, crop.cropY, crop.width, crop.height,  // Source region (crop from full canvas)
+        adjustedCrop.cropX, adjustedCrop.cropY, adjustedCrop.width, adjustedCrop.height,  // Source region (crop from full canvas)
         0, 0, frameWidth, frameHeight                      // Destination (fill cropped canvas)
       )
 
