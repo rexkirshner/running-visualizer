@@ -23,6 +23,108 @@ let ffmpegLoading = false
 let ffmpegLoadPromise = null
 
 /**
+ * Parse CSS transform matrix to extract translation values
+ * @param {string} transformValue - CSS transform value (e.g., "matrix(1, 0, 0, 1, 100, 200)")
+ * @returns {{x: number, y: number}|null} Translation values or null if parsing fails
+ */
+function parseTransformMatrix(transformValue) {
+  if (!transformValue || transformValue === 'none') {
+    return null
+  }
+
+  // Match matrix(a, b, c, d, tx, ty) or matrix3d(...)
+  const matrix2d = transformValue.match(/matrix\((.+)\)/)
+  const matrix3d = transformValue.match(/matrix3d\((.+)\)/)
+
+  if (matrix2d) {
+    const values = matrix2d[1].split(',').map(v => parseFloat(v.trim()))
+    // matrix(a, b, c, d, tx, ty) - tx and ty are at indices 4 and 5
+    return { x: values[4] || 0, y: values[5] || 0 }
+  }
+
+  if (matrix3d) {
+    const values = matrix3d[1].split(',').map(v => parseFloat(v.trim()))
+    // matrix3d has 16 values, tx and ty are at indices 12 and 13
+    return { x: values[12] || 0, y: values[13] || 0 }
+  }
+
+  // Try translate3d or translate
+  const translate3d = transformValue.match(/translate3d\(([^,]+),\s*([^,]+)/)
+  if (translate3d) {
+    return {
+      x: parseFloat(translate3d[1]),
+      y: parseFloat(translate3d[2])
+    }
+  }
+
+  const translate = transformValue.match(/translate\(([^,]+),\s*([^)]+)/)
+  if (translate) {
+    return {
+      x: parseFloat(translate[1]),
+      y: parseFloat(translate[2])
+    }
+  }
+
+  return null
+}
+
+/**
+ * Convert Leaflet pane transforms to left/top positioning
+ * Returns array of {element, originalTransform, originalLeft, originalTop}
+ * so transforms can be restored after capture
+ *
+ * @param {HTMLElement} mapElement - The map container element
+ * @returns {Array} Array of pane data for restoration
+ */
+function convertTransformsToPosition(mapElement) {
+  const panes = mapElement.querySelectorAll('.leaflet-pane')
+  const paneData = []
+
+  panes.forEach(pane => {
+    const computedStyle = window.getComputedStyle(pane)
+    const transform = computedStyle.transform
+
+    if (transform && transform !== 'none') {
+      const translation = parseTransformMatrix(transform)
+
+      if (translation) {
+        // Store original values
+        paneData.push({
+          element: pane,
+          originalTransform: pane.style.transform,
+          originalLeft: pane.style.left,
+          originalTop: pane.style.top,
+          originalPosition: pane.style.position
+        })
+
+        // Convert transform to left/top
+        pane.style.position = 'absolute'
+        pane.style.left = `${translation.x}px`
+        pane.style.top = `${translation.y}px`
+        pane.style.transform = 'none'
+
+        log.debug(`Converted pane transform: translate(${translation.x}px, ${translation.y}px) -> left/top`)
+      }
+    }
+  })
+
+  return paneData
+}
+
+/**
+ * Restore original transforms from pane data
+ * @param {Array} paneData - Array returned from convertTransformsToPosition
+ */
+function restoreTransforms(paneData) {
+  paneData.forEach(({ element, originalTransform, originalLeft, originalTop, originalPosition }) => {
+    element.style.transform = originalTransform
+    element.style.left = originalLeft
+    element.style.top = originalTop
+    element.style.position = originalPosition
+  })
+}
+
+/**
  * Get or create the FFmpeg instance
  * Lazy loads on first use
  * @returns {Promise<FFmpeg>}
@@ -471,6 +573,10 @@ export class PNGSequenceRecorder {
       // APPROACH: Capture the full map element, then manually crop
       // This avoids html2canvas issues with scrollX/scrollY and CSS transforms
 
+      // CRITICAL FIX: Convert Leaflet CSS transforms to left/top positioning
+      // before capture, since html2canvas doesn't handle transforms correctly
+      const paneData = convertTransformsToPosition(this.element)
+
       // Step 1: Capture the entire map element at its natural size
       const fullCanvas = await html2canvas(this.element, {
         backgroundColor: null,
@@ -486,6 +592,9 @@ export class PNGSequenceRecorder {
           )
         }
       })
+
+      // Restore transforms immediately after capture
+      restoreTransforms(paneData)
 
       if (this.frameCount === 0) {
         log.debug('Full canvas size:', { width: fullCanvas.width, height: fullCanvas.height })
