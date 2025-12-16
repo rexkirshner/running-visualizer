@@ -582,9 +582,42 @@ async function handleToggleRecording() {
       const exportFrame = getExportFrameFromDOM('.export-frame-overlay', aspectRatio)
       log.debug('Captured export frame for recording:', exportFrame)
 
-      // Get current animation state
-      const currentRun = filteredRuns.value.find(r => r.id === selectedRunId.value)
-      const animationColor = colorMode.value === 'single' ? singleColor.value : COLOR_PALETTE[0]
+      // Determine animation type and prepare state
+      let animationState
+
+      if (isAnimatingAll.value) {
+        // Multi-run animation - prepare activities array with colors
+        const activities = filteredRuns.value.map((run, index) => ({
+          activity: {
+            id: run.id,
+            name: run.name,
+            coordinates: run.coordinates
+          },
+          color: getRouteColor(index),
+          showMarker: showRunnerDots.value
+        }))
+
+        animationState = {
+          activities,
+          animationProgress: animationProgressAll.value || 0
+        }
+      } else {
+        // Single run animation (legacy support, though user says not important)
+        const currentRun = filteredRuns.value.find(r => r.id === selectedRunId.value)
+        const animationColor = colorMode.value === 'single' ? singleColor.value : COLOR_PALETTE[0]
+
+        animationState = {
+          currentActivity: currentRun ? {
+            id: currentRun.id,
+            name: currentRun.name,
+            coordinates: currentRun.coordinates
+          } : null,
+          animationProgress: animationProgress.value || 0,
+          showStaticRoutes: false,
+          staticActivities: [],
+          selectedColor: animationColor
+        }
+      }
 
       pngRecorder = new PNGSequenceRecorder(mapElement, {
         width,
@@ -594,17 +627,7 @@ async function handleToggleRecording() {
         exportFrame,  // Pass pre-captured frame dimensions
         useCanvasRendering: true,  // Enable canvas rendering
         map,  // Pass Leaflet map instance
-        animationState: {
-          currentActivity: currentRun ? {
-            id: currentRun.id,
-            name: currentRun.name,
-            coordinates: currentRun.coordinates
-          } : null,
-          animationProgress: 0,
-          showStaticRoutes: false,  // For now, don't show static routes (single run animation)
-          staticActivities: [],
-          selectedColor: animationColor
-        }
+        animationState
       })
 
       await pngRecorder.start()
@@ -893,10 +916,25 @@ async function animateAllRuns() {
     }
   })
 
-  // Capture frame if recording (await to ensure frame is captured before continuing)
-  // NOTE: Canvas rendering for multiple routes animation not yet fully implemented
-  // Falls back to html2canvas automatically when state not properly set
+  // Update recorder state before capturing frame
   if (isRecording.value && pngRecorder) {
+    // Build activities array with current colors
+    const activities = filteredRuns.value.map((run, index) => ({
+      activity: {
+        id: run.id,
+        name: run.name,
+        coordinates: run.coordinates
+      },
+      color: getRouteColor(index),
+      showMarker: showRunnerDots.value
+    }))
+
+    pngRecorder.updateState({
+      activities,
+      animationProgress: progress
+    })
+
+    // Capture frame (await to ensure frame is captured before continuing)
     await pngRecorder.captureFrame()
   }
 

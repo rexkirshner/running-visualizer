@@ -278,6 +278,87 @@ export function addDebugOverlay(ctx, coordinates, exportFrame, map, style = {}) 
 }
 
 /**
+ * Render multiple activities for multi-run animation
+ *
+ * Renders all activities simultaneously at the same progress level.
+ * Each activity gets its own color.
+ *
+ * @param {HTMLCanvasElement} canvas - Canvas element to render to
+ * @param {Object} exportFrame - Export frame dimensions
+ * @param {L.Map} map - Leaflet map instance
+ * @param {Object} state - Current animation state
+ * @param {Array<Object>} state.activities - Array of activities to render
+ * @param {Array<Object>} state.activities[].activity - Activity object with coordinates
+ * @param {string} state.activities[].color - Color for this activity
+ * @param {boolean} state.activities[].showMarker - Whether to show position marker
+ * @param {number} state.animationProgress - Progress percentage 0-100
+ * @param {boolean} state.debug - Whether to add debug overlay (default: false)
+ * @param {string} state.backgroundColor - Background color (default: '#F5F5F5')
+ * @returns {HTMLCanvasElement} The rendered canvas
+ */
+export function renderMultiRunFrame(canvas, exportFrame, map, state) {
+  const ctx = canvas.getContext('2d')
+
+  // Extract state
+  const {
+    activities = [],
+    animationProgress = 0,
+    debug = false,
+    backgroundColor = '#F5F5F5'
+  } = state
+
+  try {
+    // Step 1: Clear canvas and draw background
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.fillStyle = backgroundColor
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+    // Step 2: Draw all activities at the same progress level
+    for (const activityData of activities) {
+      const { activity, color, showMarker = true } = activityData
+
+      if (!activity || !activity.coordinates || activity.coordinates.length === 0) {
+        continue
+      }
+
+      // Calculate visible coordinates based on progress
+      const visibleCoords = getVisibleRouteCoordinates(activity.coordinates, animationProgress)
+
+      if (visibleCoords.length > 0) {
+        // Draw route
+        drawRoute(ctx, visibleCoords, exportFrame, map, {
+          color,
+          width: 4,
+          opacity: 1.0
+        })
+
+        // Draw position marker at the last visible point
+        if (showMarker && visibleCoords.length > 0) {
+          const currentPos = visibleCoords[visibleCoords.length - 1]
+          drawCurrentMarker(ctx, currentPos, exportFrame, map, {
+            color
+          })
+        }
+      }
+    }
+
+    // Step 3: Optionally add debug overlay (for first activity only)
+    if (debug && activities.length > 0 && activities[0].activity && activities[0].activity.coordinates) {
+      const debugCoords = activities[0].activity.coordinates.filter((_, i) => i % 10 === 0)
+      addDebugOverlay(ctx, debugCoords, exportFrame, map, {
+        color: '#00FF00',
+        size: 5
+      })
+    }
+
+    return canvas
+  } catch (error) {
+    log.error('Error rendering multi-run frame:', error)
+    throw new Error(`Multi-run frame rendering failed: ${error.message}`)
+  }
+}
+
+/**
  * Main export frame rendering function
  *
  * This is the primary entry point for rendering a complete export frame.

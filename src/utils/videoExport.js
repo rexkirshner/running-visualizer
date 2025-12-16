@@ -14,7 +14,7 @@ import JSZip from 'jszip'
 import { createLogger } from './logger.js'
 import { calculateExportFrame, calculateCropRegion } from './exportFrame.js'
 import { PROGRESS_LOG_INTERVAL, validateExportSettings } from './constants.js'
-import { renderExportFrame } from './canvasRenderer.js'
+import { renderExportFrame, renderMultiRunFrame } from './canvasRenderer.js'
 
 const log = createLogger('VideoExport')
 
@@ -626,7 +626,12 @@ export class PNGSequenceRecorder {
         canvas.height = frameHeight
 
         // Render current animation frame directly to canvas
-        renderExportFrame(canvas, this.exportFrame, this.map, this.animationState)
+        // Use multi-run renderer if activities array is present, otherwise use single-run renderer
+        if (this.animationState.activities && this.animationState.activities.length > 0) {
+          renderMultiRunFrame(canvas, this.exportFrame, this.map, this.animationState)
+        } else {
+          renderExportFrame(canvas, this.exportFrame, this.map, this.animationState)
+        }
 
         // Scale to output resolution if needed
         let outputCanvas = canvas
