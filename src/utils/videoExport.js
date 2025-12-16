@@ -604,12 +604,12 @@ export class PNGSequenceRecorder {
       }
 
       // Adjust crop region to account for pane offset
-      // The pane is visually offset by (paneOffsetX, paneOffsetY) due to transform
-      // But html2canvas captures it as if it's at (0, 0)
-      // So we need to shift our crop region by the negative of the pane offset
+      // If html2canvas ignores the transform and captures the pane at (0,0):
+      // Content that SHOULD be at (paneOffsetX, paneOffsetY) is actually at (0,0) in canvas
+      // So to find content that's visually at exportFrame position, we look further into the canvas
       const adjustedCrop = {
-        cropX: crop.cropX - paneOffsetX,
-        cropY: crop.cropY - paneOffsetY,
+        cropX: crop.cropX + paneOffsetX,
+        cropY: crop.cropY + paneOffsetY,
         width: crop.width,
         height: crop.height
       }
