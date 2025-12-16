@@ -499,8 +499,10 @@ describe('canvasRenderer', () => {
 
       renderExportFrame(canvas, exportFrame, map, state)
 
-      // Background should be drawn but no route/marker
-      expect(ctx.fillRect).toHaveBeenCalled()
+      // Background is transparent by default (clearRect called, fillRect not called for background)
+      expect(ctx.clearRect).toHaveBeenCalled()
+      // No route should be drawn since progress is 0
+      expect(ctx.stroke).not.toHaveBeenCalled()
     })
 
     it('should render debug overlay when enabled', () => {

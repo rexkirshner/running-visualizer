@@ -281,7 +281,7 @@ export function addDebugOverlay(ctx, coordinates, exportFrame, map, style = {}) 
  * @param {number} state.animationProgress - Progress percentage 0-100
  * @param {number} state.routeLineWidth - Route line width in pixels (default: 4)
  * @param {boolean} state.debug - Whether to add debug overlay (default: false)
- * @param {string} state.backgroundColor - Background color (default: '#F5F5F5')
+ * @param {string} state.backgroundColor - Background color or 'transparent' (default: 'transparent')
  * @returns {HTMLCanvasElement} The rendered canvas
  */
 export function renderMultiRunFrame(canvas, exportFrame, map, state) {
@@ -293,16 +293,20 @@ export function renderMultiRunFrame(canvas, exportFrame, map, state) {
     animationProgress = 0,
     routeLineWidth = 4,
     debug = false,
-    backgroundColor = '#F5F5F5'
+    backgroundColor = 'transparent'
   } = state
 
   try {
-    // Step 1: Clear canvas and draw background
+    // Step 1: Clear canvas (creates transparent background)
     ctx.clearRect(0, 0, canvas.width, canvas.height)
-    ctx.fillStyle = backgroundColor
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-    // Step 2: Draw all activities at the same progress level
+    // Step 2: Optionally draw solid background color
+    if (backgroundColor && backgroundColor !== 'transparent') {
+      ctx.fillStyle = backgroundColor
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+    }
+
+    // Step 3: Draw all activities at the same progress level
     for (const activityData of activities) {
       const { activity, color, showMarker = true } = activityData
 
@@ -331,7 +335,7 @@ export function renderMultiRunFrame(canvas, exportFrame, map, state) {
       }
     }
 
-    // Step 3: Optionally add debug overlay (for first activity only)
+    // Step 4: Optionally add debug overlay (for first activity only)
     if (debug && activities.length > 0 && activities[0].activity && activities[0].activity.coordinates) {
       const debugCoords = activities[0].activity.coordinates.filter((_, i) => i % 10 === 0)
       addDebugOverlay(ctx, debugCoords, exportFrame, map, {
@@ -352,11 +356,12 @@ export function renderMultiRunFrame(canvas, exportFrame, map, state) {
  *
  * This is the primary entry point for rendering a complete export frame.
  * It orchestrates all the drawing operations in the correct order:
- * 1. Clear canvas and draw background
- * 2. Draw static routes (if enabled)
- * 3. Draw current route (with progress)
- * 4. Draw current position marker
- * 5. Optionally add debug overlay
+ * 1. Clear canvas (creates transparent background)
+ * 2. Optionally draw solid background color
+ * 3. Draw static routes (if enabled)
+ * 4. Draw current route (with progress)
+ * 5. Draw current position marker
+ * 6. Optionally add debug overlay
  *
  * @param {HTMLCanvasElement} canvas - Canvas element to render to
  * @param {Object} exportFrame - Export frame dimensions
@@ -368,7 +373,7 @@ export function renderMultiRunFrame(canvas, exportFrame, map, state) {
  * @param {Array<Object>} state.staticActivities - All activities for static rendering
  * @param {string} state.selectedColor - Color for current route
  * @param {boolean} state.debug - Whether to add debug overlay (default: false)
- * @param {string} state.backgroundColor - Background color (default: '#F5F5F5')
+ * @param {string} state.backgroundColor - Background color or 'transparent' (default: 'transparent')
  * @returns {HTMLCanvasElement} The rendered canvas
  */
 export function renderExportFrame(canvas, exportFrame, map, state) {
@@ -382,7 +387,7 @@ export function renderExportFrame(canvas, exportFrame, map, state) {
     staticActivities = [],
     selectedColor = '#FF0000',
     debug = false,
-    backgroundColor = '#F5F5F5'
+    backgroundColor = 'transparent'
   } = state
 
   // Validate required parameters
@@ -392,12 +397,16 @@ export function renderExportFrame(canvas, exportFrame, map, state) {
   }
 
   try {
-    // Step 1: Clear canvas and draw background
+    // Step 1: Clear canvas (creates transparent background)
     ctx.clearRect(0, 0, canvas.width, canvas.height)
-    ctx.fillStyle = backgroundColor
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-    // Step 2: Draw static routes (if enabled)
+    // Step 2: Optionally draw solid background color
+    if (backgroundColor && backgroundColor !== 'transparent') {
+      ctx.fillStyle = backgroundColor
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+    }
+
+    // Step 3: Draw static routes (if enabled)
     if (showStaticRoutes && staticActivities.length > 0) {
       drawStaticRoutes(ctx, staticActivities, exportFrame, map, currentActivity.id, {
         color: '#CCCCCC',
@@ -406,7 +415,7 @@ export function renderExportFrame(canvas, exportFrame, map, state) {
       })
     }
 
-    // Step 3: Draw current route (with progress)
+    // Step 4: Draw current route (with progress)
     const visibleCoords = getVisibleRouteCoordinates(
       currentActivity.coordinates,
       animationProgress
@@ -419,7 +428,7 @@ export function renderExportFrame(canvas, exportFrame, map, state) {
         opacity: 1.0
       })
 
-      // Step 4: Draw current position marker (at the last visible point)
+      // Step 5: Draw current position marker (at the last visible point)
       if (visibleCoords.length > 0) {
         const currentPos = visibleCoords[visibleCoords.length - 1]
         drawCurrentMarker(ctx, currentPos, exportFrame, map, {
@@ -428,7 +437,7 @@ export function renderExportFrame(canvas, exportFrame, map, state) {
       }
     }
 
-    // Step 5: Optionally add debug overlay
+    // Step 6: Optionally add debug overlay
     if (debug && currentActivity.coordinates.length > 0) {
       // Sample coordinates for debug (every 10th point to avoid clutter)
       const debugCoords = currentActivity.coordinates.filter((_, i) => i % 10 === 0)
