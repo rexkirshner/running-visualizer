@@ -582,12 +582,29 @@ async function handleToggleRecording() {
       const exportFrame = getExportFrameFromDOM('.export-frame-overlay', aspectRatio)
       log.debug('Captured export frame for recording:', exportFrame)
 
+      // Get current animation state
+      const currentRun = filteredRuns.value.find(r => r.id === selectedRunId.value)
+      const animationColor = colorMode.value === 'single' ? singleColor.value : COLOR_PALETTE[0]
+
       pngRecorder = new PNGSequenceRecorder(mapElement, {
         width,
         height,
         frameRate: exportFrameRate.value,
         targetDuration: animationDuration.value,
-        exportFrame  // Pass pre-captured frame dimensions
+        exportFrame,  // Pass pre-captured frame dimensions
+        useCanvasRendering: true,  // Enable canvas rendering
+        map,  // Pass Leaflet map instance
+        animationState: {
+          currentActivity: currentRun ? {
+            id: currentRun.id,
+            name: currentRun.name,
+            coordinates: currentRun.coordinates
+          } : null,
+          animationProgress: 0,
+          showStaticRoutes: false,  // For now, don't show static routes (single run animation)
+          staticActivities: [],
+          selectedColor: animationColor
+        }
       })
 
       await pngRecorder.start()
@@ -877,6 +894,8 @@ async function animateAllRuns() {
   })
 
   // Capture frame if recording (await to ensure frame is captured before continuing)
+  // NOTE: Canvas rendering for multiple routes animation not yet fully implemented
+  // Falls back to html2canvas automatically when state not properly set
   if (isRecording.value && pngRecorder) {
     await pngRecorder.captureFrame()
   }
@@ -994,8 +1013,20 @@ async function animateRun() {
     }
   }
 
-  // Capture frame if recording (await to ensure frame is captured before continuing)
+  // Update recorder state before capturing frame
   if (isRecording.value && pngRecorder) {
+    const animationColor = colorMode.value === 'single' ? singleColor.value : COLOR_PALETTE[0]
+    pngRecorder.updateState({
+      currentActivity: {
+        id: run.id,
+        name: run.name,
+        coordinates: run.coordinates
+      },
+      animationProgress: progress,
+      selectedColor: animationColor
+    })
+
+    // Capture frame (await to ensure frame is captured before continuing)
     await pngRecorder.captureFrame()
   }
 
