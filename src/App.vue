@@ -939,7 +939,10 @@ async function animateAllRuns() {
   }
 
   // Continue animation if not complete
-  if (progress < 100) {
+  // When recording, ensure we capture the final 100% frame by using <= instead of <
+  const shouldContinue = isRecording.value ? (progress <= 100 && recordingFrameCount <= capturedDurationAll * exportFrameRate.value) : (progress < 100)
+
+  if (shouldContinue) {
     if (isRecording.value) {
       // When recording, use setTimeout to allow UI to update between frames
       setTimeout(() => requestAnimationFrame(animateAllRuns), 0)
@@ -1069,7 +1072,10 @@ async function animateRun() {
   }
 
   // Continue animation if not complete
-  if (progress < 100) {
+  // When recording, ensure we capture the final 100% frame by using <= instead of <
+  const shouldContinue = isRecording.value ? (progress <= 100 && recordingFrameCount <= capturedDuration * exportFrameRate.value) : (progress < 100)
+
+  if (shouldContinue) {
     if (isRecording.value) {
       // When recording, use setTimeout to allow UI to update between frames
       setTimeout(() => requestAnimationFrame(animateRun), 0)
