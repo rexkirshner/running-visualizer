@@ -623,9 +623,10 @@ export class PNGSequenceRecorder {
       // Keep transforms as-is - don't try to convert them
       const fullCanvas = await html2canvas(this.element, {
         backgroundColor: null,
-        logging: false,
+        logging: true, // Enable logging to see what's happening
         useCORS: true,
         allowTaint: true,
+        foreignObjectRendering: true, // Try using foreignObject
         scale: 1,
         ignoreElements: (element) => {
           if (!element.classList) return false
@@ -633,11 +634,29 @@ export class PNGSequenceRecorder {
             element.classList.contains('leaflet-control-container') ||
             element.classList.contains('export-frame-overlay')
           )
+        },
+        onclone: (clonedDoc) => {
+          // Log what was cloned
+          const clonedMap = clonedDoc.querySelector('.leaflet-container')
+          if (clonedMap) {
+            log.debug('Cloned map container found, panes:', clonedMap.querySelectorAll('.leaflet-pane').length)
+          }
         }
       })
 
       if (this.frameCount === 0) {
         log.debug('Full canvas size:', { width: fullCanvas.width, height: fullCanvas.height })
+
+        // DEBUG: Save the full canvas to see what html2canvas actually captured
+        fullCanvas.toBlob(blob => {
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = 'debug-full-canvas.png'
+          a.click()
+          URL.revokeObjectURL(url)
+          log.debug('Saved full canvas as debug-full-canvas.png for inspection')
+        }, 'image/png')
       }
 
       // Step 2: Create a cropped canvas at the export frame dimensions
