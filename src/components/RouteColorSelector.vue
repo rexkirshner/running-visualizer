@@ -13,7 +13,7 @@
         id="color-picker"
         type="color"
         :value="singleColor"
-        @input="handleColorChange"
+        @change="handleColorChange"
         class="color-picker"
       />
       <span class="color-hex">{{ singleColor }}</span>
