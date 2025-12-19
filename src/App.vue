@@ -71,6 +71,20 @@
       @reset="handleLocationReset"
     />
 
+    <!-- Viewport Lock Control (top-right, below location filter) -->
+    <ViewportControl
+      v-if="!loading"
+      :is-locked="isViewportLocked"
+      :latitude="viewportLat"
+      :longitude="viewportLng"
+      :zoom="viewportZoom"
+      @toggle-lock="handleViewportToggleLock"
+      @capture-view="handleViewportCapture"
+      @update:latitude="handleViewportLatChange"
+      @update:longitude="handleViewportLngChange"
+      @update:zoom="handleViewportZoomChange"
+    />
+
     <!-- Animation Controls (bottom-left) -->
     <AnimationControls
       v-if="!loading"
@@ -152,6 +166,7 @@ import LocationFilter from './components/LocationFilter.vue'
 import AnimationControls from './components/AnimationControls.vue'
 import MapTypeSelector from './components/MapTypeSelector.vue'
 import RouteColorSelector from './components/RouteColorSelector.vue'
+import ViewportControl from './components/ViewportControl.vue'
 import SetupPage from './components/SetupPage.vue'
 
 // App mode: 'setup' or 'map'
@@ -211,6 +226,12 @@ const runnerDotSize = ref(1)
 
 // Route line width state
 const routeLineWidth = ref(4) // Default: 4px
+
+// Viewport lock state
+const isViewportLocked = ref(false)
+const viewportLat = ref(DEFAULT_MAP_CENTER[0])
+const viewportLng = ref(DEFAULT_MAP_CENTER[1])
+const viewportZoom = ref(DEFAULT_MAP_ZOOM)
 
 // Recording state
 const isRecording = ref(false)
@@ -352,8 +373,8 @@ function renderRuns() {
 
   const runsToRender = filteredRuns.value
 
-  // Calculate bounds to fit all filtered runs (unless recording - user positioned view manually)
-  if (!isRecording.value) {
+  // Calculate bounds to fit all filtered runs (unless recording or viewport locked)
+  if (!isRecording.value && !isViewportLocked.value) {
     const allCoordinates = runsToRender.flatMap(run => run.coordinates)
 
     if (allCoordinates.length > 0) {
@@ -532,6 +553,56 @@ function handleRunnerDotSizeChange(value) {
 
 function handleRouteLineWidthChange(value) {
   routeLineWidth.value = value
+}
+
+// ============================================
+// Viewport Lock Handlers
+// ============================================
+
+function handleViewportToggleLock() {
+  if (!isViewportLocked.value) {
+    // Capture current view when locking
+    if (map) {
+      const center = map.getCenter()
+      viewportLat.value = center.lat
+      viewportLng.value = center.lng
+      viewportZoom.value = map.getZoom()
+    }
+    isViewportLocked.value = true
+  } else {
+    // Unlock viewport
+    isViewportLocked.value = false
+  }
+}
+
+function handleViewportCapture() {
+  if (map) {
+    const center = map.getCenter()
+    viewportLat.value = center.lat
+    viewportLng.value = center.lng
+    viewportZoom.value = map.getZoom()
+  }
+}
+
+function handleViewportLatChange(value) {
+  viewportLat.value = value
+  if (isViewportLocked.value && map) {
+    map.setView([value, viewportLng.value], viewportZoom.value)
+  }
+}
+
+function handleViewportLngChange(value) {
+  viewportLng.value = value
+  if (isViewportLocked.value && map) {
+    map.setView([viewportLat.value, value], viewportZoom.value)
+  }
+}
+
+function handleViewportZoomChange(value) {
+  viewportZoom.value = value
+  if (isViewportLocked.value && map) {
+    map.setView([viewportLat.value, viewportLng.value], value)
+  }
 }
 
 // ============================================
@@ -793,8 +864,8 @@ function handlePlayAll() {
   // Clear static routes
   renderRuns()
 
-  // Fit map to all filtered runs before starting (unless recording - user positioned view manually)
-  if (!isRecording.value) {
+  // Fit map to all filtered runs before starting (unless recording or viewport locked)
+  if (!isRecording.value && !isViewportLocked.value) {
     const allCoordinates = filteredRuns.value.flatMap(run => run.coordinates || [])
     if (allCoordinates.length > 0) {
       const bounds = L.latLngBounds(allCoordinates)
@@ -1058,8 +1129,8 @@ async function animateRun() {
       <em>${run.location}, ${run.state}</em>
     `)
 
-    // Fit map to show the animated route (unless recording - user positioned view manually)
-    if (!isRecording.value && partialCoordinates.length > 1) {
+    // Fit map to show the animated route (unless recording or viewport locked)
+    if (!isRecording.value && !isViewportLocked.value && partialCoordinates.length > 1) {
       const bounds = L.latLngBounds(partialCoordinates)
       map.fitBounds(bounds, { padding: MAP_FIT_BOUNDS_PADDING })
     }
